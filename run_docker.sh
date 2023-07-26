@@ -24,4 +24,11 @@ fi
 echo "Running the container"
 # docker run -it --gpus all --name $CONTAINER_NAME $IMAGE_NAME > e2e-instance.log 2>&1
 
-docker run -it --gpus all --name $CONTAINER_NAME $IMAGE_NAME 
+docker run -it --gpus all \
+    --name $CONTAINER_NAME \
+    --mount type=bind,source=/home/nibio/mutable-outside-world/code/PanopticSegForLargeScalePointCloud_maciej/data,target=/home/datascience \
+    $IMAGE_NAME 
+
+
+
+

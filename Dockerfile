@@ -230,6 +230,9 @@ RUN python3.8 -m pip install --no-cache-dir \
 
 WORKDIR /app
 
+# make sure thatdatascience folder exists (to the used on the oracle)
+RUN mkdir -p /home/datascience
+
 # run training
 ENTRYPOINT ["python3", "train.py", \
             "task=panoptic", \
@@ -239,5 +242,3 @@ ENTRYPOINT ["python3", "train.py", \
             "training=treeins", \
             "job_name=treeins_my_first_run"]
 
-# print the training is done
-# CMD ["echo", "Training is done!"]
