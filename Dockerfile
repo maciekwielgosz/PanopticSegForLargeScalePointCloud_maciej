@@ -71,8 +71,6 @@ RUN TORCH_CUDA_ARCH_LIST="7.0+PTX" FORCE_CUDA=1 python3.8 -m pip install --no-ca
     git+https://github.com/mit-han-lab/torchsparse.git@v1.4.0
 
                                               
-COPY . /app
-
 # torch-points3d requirements
 RUN TORCH_CUDA_ARCH_LIST="7.0+PTX" FORCE_CUDA=1 python3.8 -m pip install --no-cache-dir \
     torch-points-kernels==0.7.0 \
@@ -228,17 +226,21 @@ RUN python3.8 -m pip install --no-cache-dir \
     numba==0.57.1 \
     numpy==1.24.4
 
-WORKDIR /app
-
 # make sure thatdatascience folder exists (to the used on the oracle)
 RUN mkdir -p /home/datascience
 
-# run training
-ENTRYPOINT ["python3", "train.py", \
-            "task=panoptic", \
-            "data=panoptic/treeins_rad8", \
-            "models=panoptic/area4_ablation_3heads_5", \
-            "model_name=PointGroup-PAPER", \
-            "training=treeins", \
-            "job_name=treeins_my_first_run"]
+COPY . /app
 
+WORKDIR /app
+
+
+# run training
+# ENTRYPOINT ["python3", "train.py", \
+#             "task=panoptic", \
+#             "data=panoptic/treeins_rad8", \
+#             "models=panoptic/area4_ablation_3heads_5", \
+#             "model_name=PointGroup-PAPER", \
+#             "training=treeins", \
+#             "job_name=treeins_my_first_run"]
+
+ENTRYPOINT ["bash", "run_pipeline.sh"]

@@ -26,7 +26,7 @@ echo "Running the container"
 
 docker run -it --gpus all \
     --name $CONTAINER_NAME \
-    --mount type=bind,source=/home/nibio/mutable-outside-world/code/PanopticSegForLargeScalePointCloud_maciej/data,target=/home/datascience \
+    --mount type=bind,source=/home/nibio/mutable-outside-world/code/PanopticSegForLargeScalePointCloud_maciej/data_bucket,target=/home/data_bucket \
     $IMAGE_NAME 
 
 
