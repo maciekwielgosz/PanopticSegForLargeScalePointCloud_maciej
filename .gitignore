@@ -168,3 +168,5 @@ cython_debug/
 wandb/
 outputs/
 **/__pycache__/
+
+check_list.info

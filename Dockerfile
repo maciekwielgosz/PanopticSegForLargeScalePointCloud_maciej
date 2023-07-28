@@ -48,10 +48,12 @@ RUN python3.8 -m pip install --no-cache-dir --upgrade \
     tqdm==4.62.3 \
     wheel==0.37.0
 
+ENV CU_VERSION=cu111
+ENV TORCH_CUDA_ARCH_LIST_VER="6.0+PTX"
 
 RUN python3.8 -m pip install --no-cache-dir \
-    torch==1.9.0+cu111 \
-    torchvision==0.10.0+cu111 \
+    torch==1.9.0+${CU_VERSION} \
+    torchvision==0.10.0+${CU_VERSION} \
     torchaudio==0.9.0 \
     -f https://download.pytorch.org/whl/torch_stable.html
 
@@ -61,18 +63,18 @@ RUN python3.8 -m pip install --no-cache-dir \
     torch-cluster==1.5.9 \
     torch-spline-conv==1.2.1 \
     torch-geometric==1.7.2 \
-    -f https://data.pyg.org/whl/torch-1.9.0+cu111.html
+    -f https://data.pyg.org/whl/torch-1.9.0+${CU_VERSION}.html
 
-RUN TORCH_CUDA_ARCH_LIST="7.0+PTX" python3.8 -m pip install --no-cache-dir \
+RUN TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST_VER} python3.8 -m pip install --no-cache-dir \
     git+https://github.com/NVIDIA/MinkowskiEngine.git \
     --install-option="--blas=openblas" --install-option="--force_cuda"
 
-RUN TORCH_CUDA_ARCH_LIST="7.0+PTX" FORCE_CUDA=1 python3.8 -m pip install --no-cache-dir \
+RUN TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST_VER} FORCE_CUDA=1 python3.8 -m pip install --no-cache-dir \
     git+https://github.com/mit-han-lab/torchsparse.git@v1.4.0
 
                                               
 # torch-points3d requirements
-RUN TORCH_CUDA_ARCH_LIST="7.0+PTX" FORCE_CUDA=1 python3.8 -m pip install --no-cache-dir \
+RUN TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST_VER} FORCE_CUDA=1 python3.8 -m pip install --no-cache-dir \
     torch-points-kernels==0.7.0 \
     absl-py==0.14.0 \
     addict==2.4.0 \
