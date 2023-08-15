@@ -49,8 +49,8 @@ RUN python3.8 -m pip install --no-cache-dir --upgrade \
     wheel==0.37.0
 
 ENV CU_VERSION=cu111
-# 8.0 for BM.GPU4.8, 7.0 for local
-ENV TORCH_CUDA_ARCH_LIST_VER="8.0+PTX" 
+# 8.0 for BM.GPU4.8,; 7.0 for local ; 6.0 for VM.GPU2.1 (2.2 ?)
+ENV TORCH_CUDA_ARCH_LIST_VER="6.0+PTX" 
 
 RUN python3.8 -m pip install --no-cache-dir \
     torch==1.9.0+${CU_VERSION} \

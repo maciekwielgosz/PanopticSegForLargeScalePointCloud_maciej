@@ -29,6 +29,9 @@ from torch_points3d.utils.colors import COLORS
 from torch_points3d.utils.wandb_utils import Wandb
 from torch_points3d.visualization import Visualizer
 
+# init dataparallel
+from torch_points3d.core.initializer.initializer import init_net
+
 log = logging.getLogger(__name__)
 
 
@@ -58,6 +61,10 @@ class Trainer:
             resume = bool(self._cfg.training.checkpoint_dir)
 
         # Get device
+        print("self._cfg.training.cuda", self._cfg.training.cuda)
+        # check is valiable is a string or int and if it is a string, convert it to int
+        if isinstance(self._cfg.training.cuda, str):
+            self._cfg.training.cuda = int(self._cfg.training.cuda)
         if self._cfg.training.cuda > -1 and torch.cuda.is_available():
             device = "cuda"
             torch.cuda.set_device(self._cfg.training.cuda)
@@ -110,7 +117,7 @@ class Trainer:
 
         self._model.log_optimizers()
         log.info("Model size = %i", sum(param.numel() for param in self._model.parameters() if param.requires_grad))
-
+        
         # Set dataloaders
         self._dataset.create_dataloaders(
             self._model,
@@ -138,6 +145,8 @@ class Trainer:
 
         # Run training / evaluation
         self._model = self._model.to(self._device)
+        self._model = init_net(self._model, "normal", 0.02)
+
         if self.has_visualization:
             self._visualizer = Visualizer(
                 self._cfg.visualization, self._dataset.num_batches, self._dataset.batch_size, os.getcwd()
@@ -184,11 +193,11 @@ class Trainer:
         self._tracker.finalise(**self.tracker_options)
         if self._is_training:
             metrics = self._tracker.publish(epoch)
-            self._checkpoint.save_best_models_under_current_metrics(self._model, metrics, self._tracker.metric_func)
+            self._checkpoint.save_best_models_under_current_metrics(self._model.module, metrics, self._tracker.metric_func)
             if self.wandb_log and self._cfg.training.wandb.public:
                 Wandb.add_file(self._checkpoint.checkpoint_path)
             if self._tracker._stage == "train":
-                log.info("Learning rate = %f" % self._model.learning_rate)
+                log.info("Learning rate = %f" % self._model.module.learning_rate)
 
     def _train_epoch(self, epoch: int):
 
@@ -202,12 +211,12 @@ class Trainer:
             for i, data in enumerate(tq_train_loader):
                 t_data = time.time() - iter_data_time
                 iter_start_time = time.time()
-                self._model.set_input(data, self._device)
+                self._model.module.set_input(data, self._device)
                 #self._model.optimize_parameters(epoch, self._dataset.batch_size)
-                self._model.optimize_parameters2(epoch, i, self._dataset.batch_size)
+                self._model.module.optimize_parameters2(epoch, i, self._dataset.batch_size)
                 if i % 50 == 0:
                     with torch.no_grad():
-                        self._tracker.track(self._model, data=data, **self.tracker_options)
+                        self._tracker.track(self._model.module, data=data, **self.tracker_options)
 
                 tq_train_loader.set_postfix(
                     **self._tracker.get_metrics(),
@@ -217,7 +226,7 @@ class Trainer:
                 )
 
                 if self._visualizer.is_active:
-                    self._visualizer.save_visuals(self._model.get_current_visuals())
+                    self._visualizer.save_visuals(self._model.module.get_current_visuals())
 
                 iter_data_time = time.time()
 
@@ -256,14 +265,14 @@ class Trainer:
                 with Ctq(loader) as tq_loader:
                     for data in tq_loader:
                         with torch.no_grad():
-                            self._model.set_input(data, self._device)
-                            with torch.cuda.amp.autocast(enabled=self._model.is_mixed_precision()):
+                            self._model.module.set_input(data, self._device)
+                            with torch.cuda.amp.autocast(enabled=self._model.module.is_mixed_precision()):
                                 self._model.forward(epoch=epoch, is_training = self._is_training)
-                            self._tracker.track(self._model, data=data, **self.tracker_options)
+                            self._tracker.track(self._model.module, data=data, **self.tracker_options)
                         tq_loader.set_postfix(**self._tracker.get_metrics(), color=COLORS.TEST_COLOR)
 
                         if self.has_visualization and self._visualizer.is_active:
-                            self._visualizer.save_visuals(self._model.get_current_visuals())
+                            self._visualizer.save_visuals(self._model.module.get_current_visuals())
 
                         if self.early_break:
                             break

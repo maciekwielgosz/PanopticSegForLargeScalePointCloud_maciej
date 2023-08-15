@@ -24,10 +24,19 @@ fi
 echo "Running the container"
 # docker run -it --gpus all --name $CONTAINER_NAME $IMAGE_NAME > e2e-instance.log 2>&1
 
+
+# for local testing
+epochs=3
+batch_size=8
+cuda=0 # -1 for cpu, 0 for gpu
+
 docker run -it --gpus all \
+    -e epochs=$epochs \
+    -e batch_size=$batch_size \
+    -e cuda=$cuda \
     --name $CONTAINER_NAME \
     --mount type=bind,source=/home/nibio/mutable-outside-world/code/PanopticSegForLargeScalePointCloud_maciej/data_bucket,target=/home/data_bucket \
-    $IMAGE_NAME 
+    $IMAGE_NAME
 
 
 

@@ -3,6 +3,8 @@
 
 python3 oracle_wrapper.py
 
+export HYDRA_FULL_ERROR=1
+
 python3 train.py task=panoptic \
     data=panoptic/treeins_rad8 \
     models=panoptic/area4_ablation_3heads_5 \
