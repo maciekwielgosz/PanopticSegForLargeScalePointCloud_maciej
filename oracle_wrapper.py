@@ -2,7 +2,7 @@ import os
 import shutil
 
 PATH_DATA = '/home/datascience' # TODO: change this to the path taken from the config file
-DEBUG_MODE = True
+DEBUG_MODE = False
 
 # read the configuration file
 def run_oracle_wrapper():
