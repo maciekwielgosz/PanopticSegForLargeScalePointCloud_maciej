@@ -65,9 +65,24 @@ def read_treeins_format(train_file, label_out=True, verbose=False, debug=False):
         return xyz
     # @Treeins: read in semantic segmentation labels (0: unclassified, 1: non-tree, 2: tree) and change them to
     # (-1: unclassified, 0, non-tree, 1: tree) because unclassified must have label -1
-    semantic_labels = data['semantic_seg'].astype(np.int64)-1
+
+    # semantic_labels = data['semantic_seg'].astype(np.int64)-1
+
+    # set all semantic labels to 0 if ther are no semantic labels in the data
+    if 'semantic_seg' in data.dtype.names:
+        semantic_labels = data['semantic_seg'].astype(np.int64)-1
+    else:
+        semantic_labels = np.zeros((xyz.shape[0],), dtype=np.int64)
+    
     # @Treeins: The attribute treeID tells us to which tree a point belongs, hence we use it as instance labels
-    instance_labels = data['treeID'].astype(np.int64)+1
+    # instance_labels = data['treeID'].astype(np.int64)+1
+
+    # set all instance labels to 0 if ther are no instance labels in the data
+    if 'treeID' in data.dtype.names:
+        instance_labels = data['treeID'].astype(np.int64)+1
+    else:
+        instance_labels = np.zeros((xyz.shape[0],), dtype=np.int64)
+
     #print(np.unique(instance_labels))
     return (
         torch.from_numpy(xyz),
