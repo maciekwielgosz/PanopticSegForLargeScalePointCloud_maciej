@@ -600,12 +600,12 @@ class PanopticTracker(SegmentationTracker):
                         "vote1regularfull.ply",
                     )'''
                     # semantic prediction and GT label full cloud (for final evaluation)
-                    # self._dataset.to_eval_ply(
-                    #    test_area_i.pos,
-                    #    torch.argmax(full_pred, 1).numpy(), #[0, ..]
-                    #    test_area_i.y,   #[-1, ...]
-                    #    "Semantic_results_forEval.ply",
-                    # )
+                    self._dataset.to_eval_ply(
+                       test_area_i.pos,
+                       torch.argmax(full_pred, 1).numpy(), #[0, ..]
+                       test_area_i.y,   #[-1, ...]
+                       "Semantic_results_forEval_result_{}.ply".format(i)
+                    )
                     # instance
                     has_prediction = test_area_i.ins_pre != -1
                     # full_ins_pred_embed = knn_interpolate(
