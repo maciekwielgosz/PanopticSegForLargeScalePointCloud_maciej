@@ -688,9 +688,21 @@ class PanopticTracker(SegmentationTracker):
                     self._dataset.to_ins_ply(
                         test_area_i.pos[things_idx],
                         full_ins_pred[things_idx].numpy(),
-                        "Instance_results_withColor_{}.ply".format(i),
+                        "result_{}.ply".format(i),
                         # @Treeins: save instance segmentation prediction of current data file
                     )
+
+
+                    print( " labels: maciek:  ", self._test_area[0].instance_labels) # TODO: continue here
+                    # # instance prediction with color for "things"
+                    # things_idx = full_ins_pred != -1
+                    # self._dataset.to_eval_ply(
+                    #     test_area_i.pos[things_idx],
+                    #     full_ins_pred[things_idx].numpy(),
+                    #     self._test_area[things_idx].instance_labels,
+                    #     "Instance_results_eval_{}.ply".format(i),
+                    #     # @Treeins: save instance segmentation prediction of current data file
+                    # )
 
         if not track_instances:
             return
