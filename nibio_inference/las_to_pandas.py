@@ -5,26 +5,20 @@ import laspy
 # works with laspy 2.1.2
 
 def las_to_pandas(las_file_path, csv_file_path=None):
-    """
-    Reads a LAS file and converts it to a pandas dataframe, then saves it to a CSV file.
-
-    Args:
-        las_file_path (str): The path to the LAS file to be read.
-        csv_file_path (str): The path to the CSV file to be saved.
-
-    Returns:
-        DataFrame: Pandas DataFrame containing the LAS data.
-    """
     file_content = laspy.read(las_file_path)
 
-    # Put x, y, z, label into a numpy array
-    basic_points = np.vstack((file_content.x, file_content.y, file_content.z)).T
+    # List all the available basic parameters from the LAS file
+    basic_dimensions = ['X', 'Y', 'Z', 'intensity', 'return_num', 'num_returns',
+                        'scan_direction_flag', 'edge_of_flight_line', 'classification',
+                        'synthetic', 'key_point', 'withheld', 'scan_angle_rank',
+                        'user_data', 'pt_src_id']
+    
+    # Filter only available dimensions
+    available_dimensions = [dim for dim in basic_dimensions if hasattr(file_content, dim.lower())]
 
-    # # multiple x, y, z by scale factor
-    # basic_points[:, 0] = basic_points[:, 0] * file_content.header.scale[0]
-    # basic_points[:, 1] = basic_points[:, 1] * file_content.header.scale[1]
-    # basic_points[:, 2] = basic_points[:, 2] * file_content.header.scale[2]
-
+    # Put all basic dimensions into a numpy array
+    basic_points = np.vstack([getattr(file_content, dim.lower()) for dim in available_dimensions]).T
+    
     # Fetch any extra dimensions
     gt_extra_dimensions = list(file_content.point_format.extra_dimension_names)
 
@@ -32,10 +26,10 @@ def las_to_pandas(las_file_path, csv_file_path=None):
         extra_points = np.vstack([getattr(file_content, dim) for dim in gt_extra_dimensions]).T
         # Combine basic and extra dimensions
         all_points = np.hstack((basic_points, extra_points))
-        all_columns = ['x', 'y', 'z'] + gt_extra_dimensions
+        all_columns = available_dimensions + gt_extra_dimensions
     else:
         all_points = basic_points
-        all_columns = ['x', 'y', 'z']
+        all_columns = available_dimensions
 
     # Create dataframe
     points_df = pd.DataFrame(all_points, columns=all_columns)

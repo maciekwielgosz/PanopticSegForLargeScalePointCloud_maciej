@@ -25,7 +25,7 @@ def pandas_to_ply(csv, csv_file_provided=False, output_file_path=None):
     if output_file_path is None:
         ply_file_path = output_file_path.replace('.csv', '.ply')
     
-    ply_data = PlyData([vertex], text=True)
+    ply_data = PlyData([vertex], text=False)
     ply_data.write(output_file_path)
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import numpy as np
 
 # works with laspy 2.1.2
 
-def pandas_to_las(csv, las_file_path, csv_file_provided=False, verbose=False):
+def pandas_to_las(csv, csv_file_provided=False, output_file_path=None,  verbose=False):
     """
     Convert a pandas DataFrame to a .las file.
 
@@ -30,7 +30,7 @@ def pandas_to_las(csv, las_file_path, csv_file_provided=False, verbose=False):
         df = csv
 
     # Check if the DataFrame has the required columns
-    required_columns = ['x', 'y', 'z']
+    required_columns = ['X', 'Y', 'Z']
     for col in required_columns:
         if col not in df.columns:
             raise ValueError(f'Column {col} not found in {csv}')
@@ -76,7 +76,7 @@ def pandas_to_las(csv, las_file_path, csv_file_provided=False, verbose=False):
             outfile[col] = df[col].values
 
     # Write the file
-    outfile.write(las_file_path)
+    outfile.write(output_file_path, do_compress=False)
 
 # Test the function
 # CSV_FILE = '/home/nibio/mutable-outside-world/code/gitlab_fsct/instance_segmentation_classic/maciek/first_cc.csv'

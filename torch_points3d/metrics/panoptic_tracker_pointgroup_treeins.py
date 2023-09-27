@@ -604,7 +604,7 @@ class PanopticTracker(SegmentationTracker):
                        test_area_i.pos,
                        torch.argmax(full_pred, 1).numpy(), #[0, ..]
                        test_area_i.y,   #[-1, ...]
-                       "Semantic_results_forEval_result_{}.ply".format(i)
+                       "semantic_result_{}.ply".format(i)
                     )
                     # instance
                     has_prediction = test_area_i.ins_pre != -1
@@ -693,7 +693,7 @@ class PanopticTracker(SegmentationTracker):
                     )
 
 
-                    print( " labels: maciek:  ", self._test_area[0].instance_labels) # TODO: continue here
+                    # print( " labels: maciek:  ", self._test_area[0].instance_labels) # TODO: continue here
                     # # instance prediction with color for "things"
                     # things_idx = full_ins_pred != -1
                     # self._dataset.to_eval_ply(

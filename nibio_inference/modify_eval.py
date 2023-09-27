@@ -13,7 +13,7 @@ def get_all_ply_paths(directory):
                 ply_paths.append(filepath)
     return ply_paths
 
-def modify_yaml(file_path, new_fold):
+def modify_yaml(file_path, new_fold, output_dir_path=None):
     """Modify the YAML file"""
     with open(file_path, 'r') as file:
         data = yaml.safe_load(file)
@@ -23,6 +23,10 @@ def modify_yaml(file_path, new_fold):
 
     # Update the fold field
     data['data']['fold'] = list(new_fold)
+
+    # Update the output_dir field
+    if output_dir_path:
+        data['hydra']['run']['dir'] = output_dir_path
 
     # Use this function to output an OrderedDict as YAML
     def ordered_dump(data, stream=None, Dumper=yaml.Dumper, **kwds):
@@ -42,6 +46,7 @@ def main():
     parser = argparse.ArgumentParser(description='Modify fold field in a YAML file.')
     parser.add_argument('yaml_file_path', help='Path to the YAML file to be modified.')
     parser.add_argument('folder_path', help='Path to the folder containing .ply files.')
+    parser.add_argument('output_dir_path', help='Path to the output directory.')
 
     args = parser.parse_args()
 
@@ -52,7 +57,7 @@ def main():
         return
 
     # Modify the YAML file
-    modify_yaml(args.yaml_file_path, ply_paths)
+    modify_yaml(args.yaml_file_path, ply_paths, args.output_dir_path)
 
 if __name__ == '__main__':
     main()

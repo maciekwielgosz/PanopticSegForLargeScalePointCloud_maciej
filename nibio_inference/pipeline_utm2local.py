@@ -46,20 +46,20 @@ def las_modification_pipeline(input_file_path, output_file_path):
 
     ### steps to do #########
 
-    # find the min value of x, y, z
-    min_x = points_df['x'].min()
-    min_y = points_df['y'].min()
-    min_z = points_df['z'].min()
+  # find the min value of X, Y, Z
+    min_X = points_df['X'].min()
+    min_Y = points_df['Y'].min()
+    min_Z = points_df['Z'].min()
 
-    # subtract the min value from x, y, z
-    points_df['x'] = points_df['x'] - min_x
-    points_df['y'] = points_df['y'] - min_y
-    points_df['z'] = points_df['z'] - min_z
+    # subtract the min value from X, Y, Z
+    points_df['X'] = points_df['X'] - min_X
+    points_df['Y'] = points_df['Y'] - min_Y
+    points_df['Z'] = points_df['Z'] - min_Z
+
 
     # save the min values to a json file
-    min_values = [min_x, min_y, min_z]
-
-    min_values = [float(min_x), float(min_y), float(min_z)]  # Convert min_x, min_y, and min_z to float
+    min_values = [min_X, min_Y, min_Z]
+    min_values = [float(min_X), float(min_Y), float(min_Z)]  # Convert min_X, min_Y, and min_Z to float
 
     with open('min_values.json', 'w') as f:
         json.dump(min_values, f)
@@ -99,7 +99,7 @@ if __name__ == "__main__":
             las_modification_pipeline(input_file_path, output_file_path)
 
         # move the json file to the output folder and rename it after the output file core name
-        os.rename("min_values.json", os.path.join(args.output_folder, os.path.splitext(filename)[0] + "_min_values.json"))
+        os.rename("min_values.json", os.path.join(args.output_folder, os.path.splitext(filename)[0] + "_out_min_values.json"))
 
     # write where the output files are saved
     print("Output files are saved in: " + args.output_folder)

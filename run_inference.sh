@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PYTHONPATH='/home/nibio/mutable-outside-world'
+
 # provide path to the input and output directories and also information if to clean the output directory from command line
 SOURCE_DIR=$1
 DEST_DIR=$2
@@ -34,13 +36,19 @@ then
     rm -rf $DEST_DIR/*
 fi
 
+
+# utm normalization 
+python3 nibio_inference/pipeline_utm2local.py -i $SOURCE_DIR -o $DEST_DIR/utm2local
+
 # update the eval.yaml file with the correct paths
 cp /home/nibio/mutable-outside-world/conf/eval.yaml $DEST_DIR
-
-python3 nibio_inference/modify_eval.py $DEST_DIR/eval.yaml $SOURCE_DIR
+python3 nibio_inference/modify_eval.py $DEST_DIR/eval.yaml $DEST_DIR/utm2local $DEST_DIR
 
 # run the inference script with the config file
 python3 eval.py --config-name $DEST_DIR/eval.yaml
 
 # rename the output files result_0.ply , result_1.ply, ... to the original file names but with the prefix "inference_"
-python3 /home/nibio/mutable-outside-world/nibio_inference/rename_result_files.py $DEST_DIR/eval.yaml $DEST_DIR
+python3 /home/nibio/mutable-outside-world/nibio_inference/rename_result_files_instance.py $DEST_DIR/eval.yaml $DEST_DIR
+
+# rename segmentation files
+python3 /home/nibio/mutable-outside-world/nibio_inference/rename_result_files_segmentation.py $DEST_DIR/eval.yaml $DEST_DIR
