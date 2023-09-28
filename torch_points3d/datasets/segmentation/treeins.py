@@ -60,7 +60,13 @@ def read_treeins_format(train_file, label_out=True, verbose=False, debug=False):
     """extract data from a treeins file"""
     raw_path = train_file
     data = read_ply(raw_path)
-    xyz = np.vstack((data['x'], data['y'], data['z'])).astype(np.float32).T
+
+    # check if data['X'] exist if does exist extract data from data['X'] instead of data['x']
+    if 'X' in data.dtype.names:
+        xyz = np.vstack((data['X'], data['Y'], data['Z'])).astype(np.float32).T
+    else:
+        xyz = np.vstack((data['x'], data['y'], data['z'])).astype(np.float32).T
+        
     if not label_out:
         return xyz
     # @Treeins: read in semantic segmentation labels (0: unclassified, 1: non-tree, 2: tree) and change them to

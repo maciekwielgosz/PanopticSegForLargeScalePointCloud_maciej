@@ -32,10 +32,9 @@ def rename_files(yaml_file, directory):
                 # Rename the file
                 os.rename(old_file_path, new_file_path)
 
-                bring_back_to_utm_coordinates(new_file_path, file_path)
+                # bring_back_to_utm_coordinates(new_file_path, file_path)
                 
                 print(f'Renamed {old_file_path} to {new_file_path} ')
-                print(f'Converted {new_file_path} to UTM coordinates')
 
     except Exception as e:
         print(f'An error occurred: {e}')

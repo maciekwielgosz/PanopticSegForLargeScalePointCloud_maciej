@@ -52,3 +52,18 @@ python3 /home/nibio/mutable-outside-world/nibio_inference/rename_result_files_in
 
 # rename segmentation files
 python3 /home/nibio/mutable-outside-world/nibio_inference/rename_result_files_segmentation.py $DEST_DIR/eval.yaml $DEST_DIR
+
+
+FINAL_DEST_DIR=$DEST_DIR/final_results
+
+# remove the old final results directory if it exists
+if [ -d "$FINAL_DEST_DIR" ]; then rm -rf $FINAL_DEST_DIR; fi
+
+# run merge script
+python3 /home/nibio/mutable-outside-world/nibio_inference/merge_pt_ss_is_in_folders.py -i $DEST_DIR/utm2local -s $DEST_DIR -o $FINAL_DEST_DIR -v
+
+echo "Number of files in the final results directory: $(ls $FINAL_DEST_DIR | wc -l)"
+
+
+
+

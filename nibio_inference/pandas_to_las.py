@@ -29,8 +29,13 @@ def pandas_to_las(csv, csv_file_provided=False, output_file_path=None,  verbose=
     else:
         df = csv
 
-    # Check if the DataFrame has the required columns
-    required_columns = ['X', 'Y', 'Z']
+    # Check required columns
+
+    if 'x' not in df.columns or 'y' not in df.columns or 'z' not in df.columns:
+        required_columns = ['X', 'Y', 'Z']
+    else:
+        required_columns = ['x', 'y', 'z']
+
     for col in required_columns:
         if col not in df.columns:
             raise ValueError(f'Column {col} not found in {csv}')
