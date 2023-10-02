@@ -20,7 +20,10 @@ class MergePtSsIsInFolders(object):
         self.segmented_data_folder_path = segmented_data_folder_path
         self.output_data_folder_path = output_data_folder_path
         self.verbose = verbose
-        
+
+        # create the output_data_folder_path if it does not exist
+        if not os.path.exists(self.output_data_folder_path):
+            os.makedirs(self.output_data_folder_path)
 
     def merge(self):
         # find all the ply files in the input_data_folder_path
@@ -48,6 +51,7 @@ class MergePtSsIsInFolders(object):
         for item in input_data.keys(): 
             if item in semantic_segmentation.keys() and item in instance_segmentation.keys():
                 list_of_matched_tupeles.append((input_data[item], semantic_segmentation[item], instance_segmentation[item]))
+
 
         # merge the point cloud, semantic segmentation and instance segmentation
         for item in tqdm(list_of_matched_tupeles):

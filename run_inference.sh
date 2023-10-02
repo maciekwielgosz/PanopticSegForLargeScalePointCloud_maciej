@@ -37,8 +37,12 @@ then
 fi
 
 
+# rename the input files to the format that the inference script expects 
+# change '-' to '_' in the file names
+python3 nibio_inference/fix_naming_of_input_files.py $SOURCE_DIR 
+
 # utm normalization 
-python3 nibio_inference/pipeline_utm2local.py -i $SOURCE_DIR -o $DEST_DIR/utm2local
+python3 nibio_inference/pipeline_utm2local_parallel.py -i $SOURCE_DIR -o $DEST_DIR/utm2local
 
 # update the eval.yaml file with the correct paths
 cp /home/nibio/mutable-outside-world/conf/eval.yaml $DEST_DIR

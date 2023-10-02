@@ -10,6 +10,9 @@ from nibio_inference.ply_to_pandas import ply_to_pandas
 
 
 def ply_modification_pipeline(input_file_path, output_file_path):
+    #TODO: to correct the x to X, y to Y, z to Z as in las files
+
+
     # read the input file
     points_df = ply_to_pandas(input_file_path, csv_file_path=None)
 
@@ -40,7 +43,7 @@ def ply_modification_pipeline(input_file_path, output_file_path):
 
     return None
 
-def las_modification_pipeline(input_file_path, output_file_path):
+def las_modification_pipeline(input_file_path, output_file_path, json_file_path=None):
     # read the input file
     points_df = las_to_pandas(input_file_path, csv_file_path=None)
 
@@ -61,7 +64,7 @@ def las_modification_pipeline(input_file_path, output_file_path):
     min_values = [min_X, min_Y, min_Z]
     min_values = [float(min_X), float(min_Y), float(min_Z)]  # Convert min_X, min_Y, and min_Z to float
 
-    with open('min_values.json', 'w') as f:
+    with open(json_file_path, 'w') as f:
         json.dump(min_values, f)
 
     ### end of steps to do ###
@@ -72,7 +75,7 @@ def las_modification_pipeline(input_file_path, output_file_path):
     return None
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Process ply files and save results as las files.')
+    parser = argparse.ArgumentParser(description='Process las or laz files and save results as ply files.')
     parser.add_argument('-i', '--input_folder', type=str, help='Path to the input folder containing ply files.')
     parser.add_argument('-o', '--output_folder', type=str, help='Path to the output folder to save las files.')
 
@@ -95,11 +98,15 @@ if __name__ == "__main__":
         # run the pipeline
         if filename.endswith(".ply"):
             ply_modification_pipeline(input_file_path, output_file_path)
-        elif filename.endswith(".las"):
-            las_modification_pipeline(input_file_path, output_file_path)
+        elif filename.endswith(".las") or filename.endswith(".laz"):
+            las_modification_pipeline(
+                input_file_path, 
+                output_file_path, 
+                json_file_path=os.path.join(args.output_folder, os.path.splitext(filename)[0] + "_min_values.json")
+            )
 
         # move the json file to the output folder and rename it after the output file core name
-        os.rename("min_values.json", os.path.join(args.output_folder, os.path.splitext(filename)[0] + "_out_min_values.json"))
+        # os.rename("min_values.json", os.path.join(args.output_folder, os.path.splitext(filename)[0] + "_out_min_values.json"))
 
     # write where the output files are saved
     print("Output files are saved in: " + args.output_folder)
