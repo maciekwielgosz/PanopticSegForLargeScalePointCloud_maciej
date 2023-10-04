@@ -19,13 +19,11 @@ def rename_files(yaml_file, directory):
                 
                 # Create new file name as result_index.ply
                 old_file_name = f'semantic_result_{index}.ply'
-
-                # Construct the old and new file paths
-                new_file_path = os.path.join(directory, file_name)
-                # add suffix to the file name _instance segmentation
-                new_file_path = new_file_path.replace('.ply', '_semantic_segmentation.ply')
-
                 old_file_path = os.path.join(directory, old_file_name)
+
+                # put semantic_segmentation_ in front of the file name
+                new_file_name = 'semantic_segmentation_'+ file_name
+                new_file_path = os.path.join(directory, new_file_name)
 
                 # Rename the file
                 os.rename(old_file_path, new_file_path)
