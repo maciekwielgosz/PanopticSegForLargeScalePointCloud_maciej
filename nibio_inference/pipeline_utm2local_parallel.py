@@ -13,8 +13,6 @@ def process_file(filename, input_folder, output_folder):
     output_file_path = os.path.join(output_folder, f"{base_filename}_out.ply")
     json_file_path = os.path.join(output_folder, f"{base_filename}_out_min_values.json")
 
-    print(f"Processing the json file: {json_file_path}")
-
     if filename.endswith((".ply", ".las", ".laz")):
         modification_pipeline(input_file_path, output_file_path, json_file_path, filename.endswith(".ply"))
 

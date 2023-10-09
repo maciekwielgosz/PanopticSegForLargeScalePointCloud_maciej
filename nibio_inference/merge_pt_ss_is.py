@@ -4,7 +4,12 @@ import sys
 import jaklas
 import laspy
 
+import concurrent.futures
+import numpy as np
+
 import pandas as pd
+
+import dask.dataframe as dd
 
 from nibio_inference.ply_to_pandas import ply_to_pandas
 from nibio_inference.las_to_pandas import las_to_pandas
@@ -28,65 +33,95 @@ class MergePtSsIs(object):
         self.verbose = verbose
 
 
+    def parallel_join(self, df1_chunk, df2, on_columns, how_type):
+        return df1_chunk.merge(df2, on=on_columns, how=how_type)
+
+    def main_parallel_join(self, df1, df2, on_columns=['x', 'y', 'z'], how_type='outer', n_workers=4):
+        # Split df1 into chunks
+        chunks = np.array_split(df1, n_workers)
+        
+        results = []
+        with concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) as executor:
+            for chunk in chunks:
+                results.append(executor.submit(self.parallel_join, chunk, df2, on_columns, how_type))
+        
+        # Concatenate results
+        return pd.concat([r.result() for r in results])
+
+
     def merge(self):
+
         if self.verbose:
             print('Merging point cloud, semantic segmentation and instance segmentation.')
-        # read point cloud
-        # point_cloud_df = las_to_pandas(self.point_cloud)
 
-        point_cloud_df = ply_to_pandas(self.point_cloud)
+       # Read and preprocess data
+        def preprocess_data(file_path):
+            df = ply_to_pandas(file_path)
+            df.rename(columns={'X': 'x', 'Y': 'y', 'Z': 'z'}, inplace=True)
+            df.sort_values(by=['x', 'y', 'z'], inplace=True)
+            df['xyz_index'] = df['x'].astype(str) + "_" + df['y'].astype(str) + "_" + df['z'].astype(str)
+            df.set_index('xyz_index', inplace=True)
+            return df
 
-        # change header names from X, Y, Z which are the default names in the las file to x, y, z
-        if 'X' in point_cloud_df.columns:
-            point_cloud_df.rename(columns={'X': 'x', 'Y': 'y', 'Z': 'z'}, inplace=True)
+        point_cloud_df = preprocess_data(self.point_cloud)
+        semantic_segmentation_df = preprocess_data(self.semantic_segmentation)
+        instance_segmentation_df = preprocess_data(self.instance_segmentation)
 
-        # read semantic segmentation
-        semantic_segmentation_df = ply_to_pandas(self.semantic_segmentation)
+        # Rename columns for semantic and instance segmentations
+        semantic_segmentation_df.columns = [f'{col}_semantic_segmentation' for col in semantic_segmentation_df.columns]
+        instance_segmentation_df.columns = [f'{col}_instance_segmentation' for col in instance_segmentation_df.columns]
 
-        if 'X' in semantic_segmentation_df.columns:
-            semantic_segmentation_df.rename(columns={'X': 'x', 'Y': 'y', 'Z': 'z'}, inplace=True)
+        # Convert to Dask DataFrames for parallel processing
+        point_cloud_dd = dd.from_pandas(point_cloud_df, npartitions=48)
+        semantic_segmentation_dd = dd.from_pandas(semantic_segmentation_df, npartitions=48)
+        instance_segmentation_dd = dd.from_pandas(instance_segmentation_df, npartitions=48)
 
-        # change all the names of the columns to have the suffix _semantic_segmentation except the x, y, z columns
-        semantic_segmentation_df.columns = [f'{col}_semantic_segmentation' if col not in ['x', 'y', 'z'] else col for col in semantic_segmentation_df.columns]
+        # Merge using Dask
+        merged_dd = point_cloud_dd.join(semantic_segmentation_dd, how='outer')
+        merged_dd = merged_dd.join(instance_segmentation_dd, how='outer')
 
-        # read instance segmentation
-        instance_segmentation_df = ply_to_pandas(self.instance_segmentation)
+        # Convert back to pandas DataFrame
+        merged_df = merged_dd.compute()
 
-        if 'X' in instance_segmentation_df.columns:
-            instance_segmentation_df.rename(columns={'X': 'x', 'Y': 'y', 'Z': 'z'}, inplace=True)
-
-        # change all the names of the columns to have the suffix _instance_segmentation except the x, y, z columns
-        instance_segmentation_df.columns = [f'{col}_instance_segmentation' if col not in ['x', 'y', 'z'] else col for col in instance_segmentation_df.columns]
-
-        # create a new data frame with only the columns that contain pred in the name and the x, y, z columns
-        # semantic_segmentation_df = semantic_segmentation_df[[col for col in semantic_segmentation_df.columns if 'pred' in col] + ['x', 'y', 'z']]
-        # merge point cloud with semantic segmentation in a way that takes sum of the columns
-        merged_df = pd.merge(point_cloud_df, semantic_segmentation_df, on=['x', 'y', 'z'], how='outer')
-
-        # create a new data frame with only the columns that contain pred in the name and the x, y, z columns
-        # instance_segmentation_df = instance_segmentation_df[[col for col in instance_segmentation_df.columns if 'pred' in col] + ['x', 'y', 'z']]
-
-        merged_df = pd.merge(merged_df, instance_segmentation_df, on=['x', 'y', 'z'], how='outer')
-
-        # bring back to utm coordinates
+        # Post-process merged data
         min_values_path = self.point_cloud.replace('.ply', '_min_values.json')
-
         with open(min_values_path, 'r') as f:
             min_values = json.load(f)
         
         min_x, min_y, min_z = min_values
-
-        # add the min values back to x, y, z
-        merged_df['x'] = merged_df['x'].astype(float) + min_x
-        merged_df['y'] = merged_df['y'].astype(float) + min_y
-        merged_df['z'] = merged_df['z'].astype(float) + min_z
-
-        # remove duplicate columns
-        # merged_df = merged_df.T.drop_duplicates().T
+        merged_df['x'] += min_x
+        merged_df['y'] += min_y
+        merged_df['z'] += min_z
 
         return merged_df
     
     def save(self, merged_df):
+        if 'return_num' in merged_df:
+            if self.verbose:
+                print('Clipping return_num to 7 for file: {}'.format(self.output_file_path))
+            merged_df['return_num'] = merged_df['return_num'].clip(upper=7)
+
+            if self.verbose:
+                print('Clipping done for return_num.')
+
+
+        if 'num_returns' in merged_df:
+            if self.verbose:
+                print('Clipping num_returns to 7 for file: {}'.format(self.output_file_path))
+            merged_df['num_returns'] = merged_df['num_returns'].clip(upper=7)
+
+            if self.verbose:
+                print('Clipping done for num_returns.')
+
+        # cols_with_value = []
+
+        # for col in merged_df.columns:
+        #     if 8.0 in merged_df[col].unique():
+        #         cols_with_value.append(col)
+
+        # print("Columns containing the value 8.0:", cols_with_value)
+
+
         # save the merged data frame to a file
         # merged_df.to_csv(self.output_file_path, index=False)
 
@@ -116,11 +151,17 @@ class MergePtSsIs(object):
             print('point_cloud: {}'.format(self.point_cloud))
             print('semantic_segmentation: {}'.format(self.semantic_segmentation))
             print('instance_segmentation: {}'.format(self.instance_segmentation))
-            print('output_file_path: {}'.format(self.output_file_path))
+            
         merged_df = self.merge()
         if self.output_file_path is not None:
             self.save(merged_df)
+
+        if self.verbose:
+            print('Done for:')
+            print('output_file_path: {}'.format(self.output_file_path))
+        
         return merged_df
+    
     
     def __call__(self):
         return self.run()

@@ -620,7 +620,14 @@ class PanopticTracker(SegmentationTracker):
                         # @Treeins: save subsampled instance segmentation prediction of current data file
                     )
 
-                    assign_index = knn(test_area_i.pos[has_prediction], test_area_i.pos, k=1)
+                    # assign_index = knn(test_area_i.pos[has_prediction], test_area_i.pos, k=1)
+                    
+                    print("Doing knn")
+                    print("data is on device: {}".format(test_area_i.pos.device))
+
+                    assign_index = knn(test_area_i.pos[has_prediction].cpu(), test_area_i.pos.cpu(), k=1, num_workers=48)
+
+                    print("Done knn")
 
                     # assign_index2  = nearest(self._test_area.pos, self._test_area.pos[has_prediction])
 
@@ -675,15 +682,18 @@ class PanopticTracker(SegmentationTracker):
                         "Instance_Offset_results_forEval.ply",
                     )'''
 
-                    self._dataset.final_eval(
-                        torch.argmax(full_pred, 1).numpy(),
-                        full_ins_pred.numpy(),
-                        full_ins_pred.numpy(),
-                        test_area_i.y,
-                        test_area_i.instance_labels,
-                        "Evaluation_{}.txt".format(i),  # @Treeins: save evaulation metrics of current data file
-                    )
+                    print("writing evaluation txt")
+                    # self._dataset.final_eval(
+                    #     torch.argmax(full_pred, 1).numpy(),
+                    #     full_ins_pred.numpy(),
+                    #     full_ins_pred.numpy(),
+                    #     test_area_i.y,
+                    #     test_area_i.instance_labels,
+                    #     "Evaluation_{}.txt".format(i),  # @Treeins: save evaulation metrics of current data file
+                    # )
                     # instance prediction with color for "things"
+                    print("writing instance ply")
+
                     things_idx = full_ins_pred != -1
                     self._dataset.to_ins_ply(
                         test_area_i.pos[things_idx],
@@ -692,6 +702,7 @@ class PanopticTracker(SegmentationTracker):
                         # @Treeins: save instance segmentation prediction of current data file
                     )
 
+                    print("writing instance ply done")
 
                     # print( " labels: maciek:  ", self._test_area[0].instance_labels) # TODO: continue here
                     # # instance prediction with color for "things"
