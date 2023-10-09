@@ -1,5 +1,6 @@
 import os
 import argparse
+from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -59,8 +60,59 @@ def merge_pointclouds(chunk_name, chunks_list, prediction='preds'):
         chunk[prediction] = chunk[prediction].map(mapping)
         start_value += row['number_of_unique_values']
 
-    results_df.to_csv(f"{chunk_name}_results.csv")
-    return pd.concat(chunks_list, ignore_index=True)
+    # results_df.to_csv(f"{chunk_name}_results.csv")
+    concatenated =  pd.concat(chunks_list, ignore_index=True)
+
+    # compute  border tree centroid for concatenated point cloud using simular method as for chunks
+    concatenated['x_border_global'] = ((concatenated['x'] <= concatenated['x'].min() + 0.05) | (concatenated['x'] >= concatenated['x'].max() - 0.05)).astype(int)
+    concatenated['y_border_global'] = ((concatenated['y'] <= concatenated['y'].min() + 0.05) | (concatenated['y'] >= concatenated['y'].max() - 0.05)).astype(int)
+    
+    # find for border trees in concatenated point cloud
+    border_trees_global = concatenated[(concatenated['x_border_global'] == 1) | (concatenated['y_border_global'] == 1)]
+    unique_values_border_trees_global = border_trees_global[prediction].unique()
+
+    # find centroid for border trees in concatenated point cloud
+    concatenated['border_tree_global'] = concatenated[prediction].isin(unique_values_border_trees_global).astype(int)
+    concatenated['x_centroid_global'], concatenated['y_centroid_global'], concatenated['z_centroid_global'] = 0, 0, 0
+
+    # make all the trees which are local border trees and global border trees the same time not border trees in concatenated point cloud
+    concatenated.loc[concatenated['border_tree_global'] == 1, 'border_tree'] = 0
+
+    # ESSENTIAL UP 
+    concatenated.sort_values(by=['x', 'y', 'z'], inplace=True)
+
+    # get a list of min and max values for x and y in chunks as a tuple
+    x_min_max = [(chunk['x'].min(), chunk['x'].max()) for chunk in chunks_list]
+    y_min_max = [(chunk['y'].min(), chunk['y'].max()) for chunk in chunks_list]
+
+    # print (x_min_max) and print (y_min_max)
+    print(x_min_max)
+    print(y_min_max)
+
+    # get all centroids of the border trees in concatenated point cloud and group them by the prediction value and taking 
+    # x_centroid, y_centroid and z_centroid mean values
+    all_centroids = concatenated[concatenated['border_tree'] == 1].groupby(prediction).first()[['x_centroid', 'y_centroid', 'z_centroid']]
+
+    print(f"Number of centroids: {len(all_centroids)}")
+
+    # group  centroids by chunks by checking if the centroid is in the range of min and max values of x and y of the chunks
+    # and put them into a dictionary
+    centroids_by_chunk = defaultdict(list)
+
+    for chunk, x_item, y_item in zip(chunks_list, x_min_max, y_min_max):
+        for centroid in all_centroids.values:
+            if x_item[0] <= centroid[0] <= x_item[1] and y_item[0] <= centroid[1] <= y_item[1]:
+                centroids_by_chunk[(x_item, y_item)].append(centroid)
+                # Remove the centroid from all_centroids to ensure it's not counted again
+                all_centroids = all_centroids.drop(all_centroids[(all_centroids['x_centroid'] == centroid[0]) & (all_centroids['y_centroid'] == centroid[1])].index)
+
+
+    print(f"Number of centroids: {len(centroids_by_chunk)}")
+    # print(centroids_by_chunk)
+
+
+
+    return concatenated
 
 
 def main():
