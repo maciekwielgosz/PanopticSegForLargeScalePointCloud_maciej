@@ -36,16 +36,16 @@ class MergePtSsIsInFolders(object):
         input_data = {os.path.basename(file).split('.')[0]: file for file in input_data_files}
 
         # find all the _semantic_segmentation.ply files in the segmented_data_folder_path
-        semantic_segmentation_files = [file for file in segmented_data_files if '_semantic_segmentation.ply' in file]
+        semantic_segmentation_files = [file for file in segmented_data_files if 'semantic_segmentation_' in file]
 
         # combine the segmented_data_folder_path and the core names of the files in the segmented_data_folder_path and remove the _semantic_segmentation.ply suffix
-        semantic_segmentation = {os.path.basename(file).split('.')[0].replace('_semantic_segmentation', ''): file for file in semantic_segmentation_files}
+        semantic_segmentation = {os.path.basename(file).split('.')[0].replace('semantic_segmentation_', ''): file for file in semantic_segmentation_files}
 
         # find all the _instance_segmentation.ply files in the segmented_data_folder_path
-        instance_segmentation_files = [file for file in segmented_data_files if '_instance_segmentation.ply' in file]
+        instance_segmentation_files = [file for file in segmented_data_files if 'instance_segmentation_' in file]
 
         # combine the segmented_data_folder_path and the core names of the files in the segmented_data_folder_path
-        instance_segmentation = {os.path.basename(file).split('.')[0].replace('_instance_segmentation', ''): file for file in instance_segmentation_files}
+        instance_segmentation = {os.path.basename(file).split('.')[0].replace('instance_segmentation_', ''): file for file in instance_segmentation_files}
 
         list_of_matched_tupeles = []
         for item in input_data.keys(): 
