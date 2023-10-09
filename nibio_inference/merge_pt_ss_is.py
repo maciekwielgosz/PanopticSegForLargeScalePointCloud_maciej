@@ -89,9 +89,9 @@ class MergePtSsIs(object):
             min_values = json.load(f)
         
         min_x, min_y, min_z = min_values
-        merged_df['x'] += min_x
-        merged_df['y'] += min_y
-        merged_df['z'] += min_z
+        merged_df['x'] = merged_df['x'].astype(float) + min_x
+        merged_df['y'] = merged_df['y'].astype(float) + min_y
+        merged_df['z'] = merged_df['z'].astype(float) + min_z
 
         return merged_df
     
