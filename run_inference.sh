@@ -51,6 +51,8 @@ python3 nibio_inference/modify_eval.py $DEST_DIR/eval.yaml $DEST_DIR/utm2local $
 # run the inference script with the config file
 python3 eval.py --config-name $DEST_DIR/eval.yaml
 
+echo "Done with inference using the config file: $DEST_DIR/eval.yaml"
+
 # rename the output files result_0.ply , result_1.ply, ... to the original file names but with the prefix "inference_"
 python3 /home/nibio/mutable-outside-world/nibio_inference/rename_result_files_instance.py $DEST_DIR/eval.yaml $DEST_DIR
 

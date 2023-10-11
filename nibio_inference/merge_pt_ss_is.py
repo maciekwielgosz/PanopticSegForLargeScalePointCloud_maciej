@@ -83,6 +83,12 @@ class MergePtSsIs(object):
         # Convert back to pandas DataFrame
         merged_df = merged_dd.compute()
 
+        # remove the following columns from the merged data frame : x_instance_segmentation, y_instance_segmentation, z_instance_segmentation
+        merged_df.drop(columns=['x_instance_segmentation', 'y_instance_segmentation', 'z_instance_segmentation'], inplace=True)
+
+        # remove the following columns from the merged data frame : x_semantic_segmentation, y_semantic_segmentation, z_semantic_segmentation
+        merged_df.drop(columns=['x_semantic_segmentation', 'y_semantic_segmentation', 'z_semantic_segmentation'], inplace=True)
+
         # Post-process merged data
         min_values_path = self.point_cloud.replace('.ply', '_min_values.json')
         with open(min_values_path, 'r') as f:
@@ -138,6 +144,8 @@ class MergePtSsIs(object):
         #     output_file_path=self.output_file_path
         #     )
         
+    
+
         # save the merged data frame to a file using jaklas as a .las file
         jaklas.write(merged_df, self.output_file_path, point_format=2, scale=(0.001, 0.001, 0.001))
 

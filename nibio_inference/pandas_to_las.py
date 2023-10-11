@@ -29,13 +29,12 @@ def pandas_to_las(csv, csv_file_provided=False, output_file_path=None,  verbose=
     else:
         df = csv
 
+
+    # Standardize column names to match LAS format
+    df.rename(columns={'x': 'X', 'y': 'Y', 'z': 'Z'}, inplace=True)
+
     # Check required columns
-
-    if 'x' not in df.columns or 'y' not in df.columns or 'z' not in df.columns:
-        required_columns = ['X', 'Y', 'Z']
-    else:
-        required_columns = ['x', 'y', 'z']
-
+    required_columns = ['X', 'Y', 'Z']
     for col in required_columns:
         if col not in df.columns:
             raise ValueError(f'Column {col} not found in {csv}')
@@ -70,7 +69,7 @@ def pandas_to_las(csv, csv_file_provided=False, output_file_path=None,  verbose=
     
     # Assign coordinates
     for col in required_columns:
-        outfile[col] = df[col].values
+        outfile[col] = df[col].values.astype(np.float32)
 
     # Assign extra dimensions
     for col in gt_extra_dimensions:
