@@ -1,5 +1,6 @@
 import os
 import argparse
+import re
 
 def rename_files(input_folder):
     # List all files in the given directory
@@ -10,6 +11,13 @@ def rename_files(input_folder):
         if os.path.isfile(filepath):
             # Replace '-' with '_' in the filename
             new_filename = filename.replace('-', '_')
+            # remove all the spaces from filename
+            new_filename = new_filename.replace(' ', '_')
+            # replace all the special characters from filename but not the extension
+            new_filename = re.sub(r'[^a-zA-Z0-9_\.]', '', new_filename)
+            # replace multiple underscores with single underscore
+            new_filename = re.sub(r'_+', '_', new_filename)
+        
             # Construct the new file path
             new_filepath = os.path.join(input_folder, new_filename)
             # Rename the file

@@ -138,12 +138,12 @@ class InstanceSegmentationMetricsInFolder():
         metric_dict_list = []
         f1_scores_weighted_list = []
 
-        paralle_output = Parallel(n_jobs=-1, verbose=0)(
+        parallel_output = Parallel(n_jobs=-1, verbose=0)(
             delayed(self.compute_metrics)(gt_las_file_path, target_las_file_path) for gt_las_file_path, target_las_file_path in matched_paths
         )
 
         # extract the metric_dict_list and f1_scores_weighted_list from the paralle_output
-        for metric_dict_mean, f1_score_weighted in paralle_output:
+        for metric_dict_mean,  f1_score_weighted in parallel_output:
             metric_dict_list.append(metric_dict_mean) 
             f1_scores_weighted_list.append(f1_score_weighted)
 

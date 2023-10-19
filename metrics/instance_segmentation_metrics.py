@@ -27,6 +27,7 @@ class InstanceSegmentationMetrics:
         self.verbose = verbose
         # read and prepare input las file and instance segmented las file
         self.input_las = laspy.read(self.input_file_path)
+
         self.instance_segmented_las = laspy.read(self.instance_segmented_file_path)
 
         self.skip_flag = self.check_if_labels_exist(
@@ -45,7 +46,6 @@ class InstanceSegmentationMetrics:
 
             # make all points with label < 0 to 0
             self.Y_labels[self.Y_labels < 0] = 0
-
             # if self.remove_ground:
             #     # the labeling starts from 0, so we need to remove the ground
             #     self.Y_labels += 1
@@ -54,6 +54,19 @@ class InstanceSegmentationMetrics:
             self.dict_Y = self.do_knn_mapping()
         else:
             logging.info('Skipping the file: {}'.format(self.input_file_path))
+
+
+    def check_scale(self, las_file):
+        # Access header information
+        x_dimension_units = las_file.header.x_scale
+        y_dimension_units = las_file.header.y_scale
+        z_dimension_units = las_file.header.z_scale
+
+        # Print units for X, Y, and Z dimensions
+        print(f"Units for X: {x_dimension_units}")
+        print(f"Units for Y: {y_dimension_units}")
+        print(f"Units for Z: {z_dimension_units}")
+
 
 
     def check_if_labels_exist(self, X_label='treeID', Y_label='instance_nr'):
@@ -296,13 +309,12 @@ class InstanceSegmentationMetrics:
                 # get IoU
                 IoU = true_positive / (true_positive + false_positive + false_negative)
 
-                # find hight of the tree in the ground truth
-                Z_values = self.input_las[self.X_labels == dominant_label].Z.astype(np.float64)
-                hight_of_tree_gt = (Z_values.max() - Z_values.min()) / 1000
 
+                Z_values = np.array(self.input_las.z)[self.X_labels == dominant_label]
+                hight_of_tree_gt = (Z_values.max() - Z_values.min())
                 # find hight of the tree in the prediction
-                Z_values = self.instance_segmented_las[self.Y_labels == label].Z.astype(np.float64)
-                hight_of_tree_pred = (Z_values.max() - Z_values.min()) / 1000
+                Z_values = np.array(self.instance_segmented_las.z)[self.Y_labels == label]
+                hight_of_tree_pred = (Z_values.max() - Z_values.min()) 
 
                 # get abs resiudal of the hight of the tree in the prediction
                 residual_hight_of_tree_pred = (hight_of_tree_gt - hight_of_tree_pred)
@@ -391,8 +403,8 @@ class InstanceSegmentationMetrics:
 
             tree_level_metric = {
                 'true_positve (detection rate)': len(trees_correctly_predicted_IoU) / len(gt_trees), 
-                'false_positve (commission)': len(trees_predicted - trees_correctly_predicted_IoU) / len(gt_trees), 
-                'false_negative (omissions)': len(gt_trees - trees_predicted - trees_correctly_predicted_IoU) / len(gt_trees), 
+                'false_positve (commission)': len(trees_predicted - trees_correctly_predicted_IoU) / len(trees_predicted), 
+                'false_negative (omissions)': len(gt_trees - trees_correctly_predicted_IoU) / len(gt_trees), 
                 'gt': len(gt_trees)}
 
             # add tree level metrics to the metric_dict_mean

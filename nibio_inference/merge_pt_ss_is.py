@@ -9,7 +9,7 @@ import numpy as np
 
 import pandas as pd
 
-import dask.dataframe as dd
+import dask.dataframe as dd  # dask==2021.8.1
 
 from nibio_inference.ply_to_pandas import ply_to_pandas
 from nibio_inference.las_to_pandas import las_to_pandas
@@ -67,6 +67,11 @@ class MergePtSsIs(object):
         semantic_segmentation_df = preprocess_data(self.semantic_segmentation)
         instance_segmentation_df = preprocess_data(self.instance_segmentation)
 
+        # save to csv files for debugging
+        # point_cloud_df.to_csv(self.point_cloud.replace('.ply', '.csv'))
+        # semantic_segmentation_df.to_csv(self.semantic_segmentation.replace('.ply', '.csv'))
+        # instance_segmentation_df.to_csv(self.instance_segmentation.replace('.ply', '.csv'))
+
         # Rename columns for semantic and instance segmentations
         semantic_segmentation_df.columns = [f'{col}_semantic_segmentation' for col in semantic_segmentation_df.columns]
         instance_segmentation_df.columns = [f'{col}_instance_segmentation' for col in instance_segmentation_df.columns]
@@ -98,7 +103,6 @@ class MergePtSsIs(object):
         merged_df['x'] = merged_df['x'].astype(float) + min_x
         merged_df['y'] = merged_df['y'].astype(float) + min_y
         merged_df['z'] = merged_df['z'].astype(float) + min_z
-
         return merged_df
     
     def save(self, merged_df):

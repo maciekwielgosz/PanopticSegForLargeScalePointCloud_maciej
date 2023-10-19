@@ -34,8 +34,25 @@ def las_to_pandas(las_file_path, csv_file_path=None):
     # Create dataframe
     points_df = pd.DataFrame(all_points, columns=all_columns)
 
+    # convert x, y, z to float
+    points_df['X'] = points_df['X'].astype(float)
+    points_df['Y'] = points_df['Y'].astype(float)
+    points_df['Z'] = points_df['Z'].astype(float)
+
     # Save pandas dataframe to csv
     if csv_file_path is not None:
         points_df.to_csv(csv_file_path, index=False, header=True, sep=',')
 
     return points_df
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Convert las or laz files to pandas dataframes.')
+    parser.add_argument('-i', '--input_file', type=str, help='Path to the input file.')
+    parser.add_argument('-o', '--output_file', type=str, help='Path to the output file.')
+
+    args = parser.parse_args()
+
+    las_to_pandas(args.input_file, args.output_file)
