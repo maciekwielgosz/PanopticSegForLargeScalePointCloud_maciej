@@ -40,7 +40,8 @@ echo "Output directory: $DEST_DIR"
 # Change '-' to '_' in the file names
 
 # Copy the input files to the output directory to avoid changing the original files in an input_data directory
-cp -r "$SOURCE_DIR" "$DEST_DIR/input_data"
+mkdir -p "$DEST_DIR/input_data"
+cp -r "$SOURCE_DIR/"* "$DEST_DIR/input_data/"
 
 python3 nibio_inference/fix_naming_of_input_files.py "$DEST_DIR/input_data"
 
