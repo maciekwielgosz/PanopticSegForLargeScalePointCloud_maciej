@@ -35,9 +35,9 @@ def las_to_pandas(las_file_path, csv_file_path=None):
     points_df = pd.DataFrame(all_points, columns=all_columns)
 
     # convert x, y, z to float
-    points_df['X'] = points_df['X'].astype(float)
-    points_df['Y'] = points_df['Y'].astype(float)
-    points_df['Z'] = points_df['Z'].astype(float)
+    # points_df['X'] = points_df['X'].astype(float)
+    # points_df['Y'] = points_df['Y'].astype(float)
+    # points_df['Z'] = points_df['Z'].astype(float)
 
     # Save pandas dataframe to csv
     if csv_file_path is not None:

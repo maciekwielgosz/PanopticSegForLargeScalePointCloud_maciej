@@ -4,12 +4,12 @@ export PYTHONPATH='/home/nibio/mutable-outside-world'
 # Base directories
 BASE_DIR=~/data/test_data_agnostic_instanceSeg
 
-# BASE_DIR=/home/nibio/mutable-outside-world/maciek  # Debugging
+# BASE_DIR=/home/nibio/mutable-outside-world/maciek_1_2_3  # Debugging
 
 # Plot names
 declare -a PLOTS=("austrian_plot" "english_plot" "for_instance" "german_plot" "mls")
 
-# declare -a PLOTS=("b0" "b1")  # Debugging
+# declare -a PLOTS=("b_0" "b_1")  # Debugging
 
 
 # Function to run inference tests
@@ -53,11 +53,13 @@ run_paper_tests() {
 }
 
 # Execute the tests
-run_paper_tests "sparse_1000"
-run_paper_tests "sparse_500"
-run_paper_tests "sparse_100"
 run_paper_tests "sparse_10"
+run_paper_tests "sparse_100"
+run_paper_tests "sparse_500"
+run_paper_tests "sparse_1000"
+run_paper_tests "original_as_is"
 
-# run_paper_tests "a0"  # Debugging
-# run_paper_tests "a1"  # Debugging
+
+# run_paper_tests "a_500"  # Debugging
+# run_paper_tests "a_1000"  # Debugging
 

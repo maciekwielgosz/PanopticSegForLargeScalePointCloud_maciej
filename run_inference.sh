@@ -52,6 +52,9 @@ python3 nibio_inference/pipeline_utm2local_parallel.py -i "$DEST_DIR/input_data"
 cp /home/nibio/mutable-outside-world/conf/eval.yaml "$DEST_DIR"
 python3 nibio_inference/modify_eval.py "$DEST_DIR/eval.yaml" "$DEST_DIR/utm2local" "$DEST_DIR"
 
+# clear cache
+python3 nibio_inference/clear_cache.py --eval_yaml "$DEST_DIR/eval.yaml"
+
 # Run the inference script with the config file
 python3 eval.py --config-name "$DEST_DIR/eval.yaml"
 
