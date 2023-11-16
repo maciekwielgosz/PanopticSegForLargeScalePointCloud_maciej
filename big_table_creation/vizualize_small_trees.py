@@ -2,10 +2,10 @@ import os
 from matplotlib import pyplot as plt
 import pandas as pd
 import argparse
-from scipy.stats import gaussian_kde
-from matplotlib.colors import ListedColormap
+
+
 from scipy.spatial import ConvexHull
-from sklearn.cluster import DBSCAN
+
 
 
 import numpy as np
@@ -13,7 +13,7 @@ import numpy as np
 from nibio_inference.las_to_pandas import las_to_pandas
 import json
 
-HIGH_RANGES = [0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0]
+HIGH_RANGES = [0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0]
 
 # convert HIGH_RANGES to dictionary with keys as index and values as ranges so they sound nice like '0-5'
 HIGH_RANGES_DICT = {}
@@ -26,8 +26,6 @@ class VizualizeSmallTrees(object):
 
     def __init__(self) -> None:
         pass
-
- 
 
     def compute_mean_metrics(self, gt_trees, df_csv):
 
@@ -83,7 +81,24 @@ class VizualizeSmallTrees(object):
         df_laz = las_to_pandas(laz_file_path)
 
         # subtract df_laz['Z'].min() from df_laz['Z'] to get the height of the tree
-        df_laz['Z'] = df_laz['Z'] - df_laz['Z'].min()
+        # df_laz['Z'] = df_laz['Z'] - df_laz['Z'].min()
+
+        gt_trees_with_height_max = df_laz[['treeID', 'Z']].groupby('treeID').max().reset_index()
+        gt_trees_with_height_min = df_laz[['treeID', 'Z']].groupby('treeID').min().reset_index()
+
+        # compute the tree hight by subtracting the min z value from the max z value grouped by treeID
+        gt_trees_with_height = gt_trees_with_height_max.copy()
+        gt_trees_with_height['Z'] = gt_trees_with_height_max['Z'] - gt_trees_with_height_min['Z']
+
+
+        
+        # compute the tree hight by subtracting the min z value from the max z value grouped by treeID
+        
+
+        # convert gt_trees_with_height to list of tuples
+        gt_trees_with_height = list(zip(gt_trees_with_height['treeID'].tolist(), gt_trees_with_height['Z'].tolist()))
+
+        print('gt_trees_with_height: ', gt_trees_with_height)
 
         df_csv = pd.read_csv(csv_file_path)
 
@@ -95,9 +110,16 @@ class VizualizeSmallTrees(object):
 
         for key, value in HIGH_RANGES_DICT.items():
             df_csv_in_range = df_csv.loc[(df_csv['high_of_tree_gt'] >= HIGH_RANGES[key]) & (df_csv['high_of_tree_gt'] < HIGH_RANGES[key+1])]
-            df_dict_laz_tmp = df_laz.loc[(df_laz['Z'] >= HIGH_RANGES[key]) & (df_laz['Z'] < HIGH_RANGES[key+1])]
-            # get treeID of gt trees
-            gt_trees =  df_dict_laz_tmp['treeID'].unique()
+
+            # find the gt trees in gt_trees_with_height that are in the range
+            gt_trees_in_range = [x[0] for x in gt_trees_with_height if x[1] >= HIGH_RANGES[key] and x[1] < HIGH_RANGES[key+1]]
+
+            gt_trees = gt_trees_in_range
+
+            # # find the max z value of df_laz
+            # df_dict_laz_tmp = df_laz.loc[(df_laz['Z'] >= HIGH_RANGES[key]) & (df_laz['Z'] < HIGH_RANGES[key+1])]
+            # # get treeID of gt trees
+            # gt_trees =  df_dict_laz_tmp['treeID'].unique()
 
             # compute mean metrics    
             dict_metrics = self.compute_mean_metrics(gt_trees, df_csv_in_range)
@@ -109,6 +131,11 @@ class VizualizeSmallTrees(object):
         # print(json.dumps(range_dict, indent=4))
 
         for key in range_dict.keys():
+            print('range: ', key)
+            print('detection rate: ', range_dict[key]['detection_rate'])
+            print('ommision rate: ', range_dict[key]['ommision_rate'])
+            print('commission rate: ', range_dict[key]['commission_rate'])
+            print('f1 score: ', range_dict[key]['mean_f1'])
             print('gt trees: ', range_dict[key]['gt_trees'])
             print('predicted trees: ', range_dict[key]['predicted_trees'])
             print('predicted trees ok: ', range_dict[key]['predicted_trees_ok'])
@@ -117,59 +144,91 @@ class VizualizeSmallTrees(object):
 
         print('range_dict: ', range_dict.keys())
 
-        # generate 2D projection of the point cloud of the gt trees and predicted trees if both gt trees and predicted trees are in the range 0-5
-        if len(range_dict['0-5.0']['gt_trees']) > 0 and len(range_dict['0-5.0']['predicted_trees']) > 0:
-            # print length of gt trees and predicted trees
-            print('len gt trees: ', len(range_dict['0-5.0']['gt_trees']))
-            print('len predicted trees: ', len(range_dict['0-5.0']['predicted_trees']))
-            self.generate_2D_plot_of_trees(
-                df_laz, range_dict['0-5.0']['gt_trees'], 
-                range_dict['0-5.0']['predicted_trees'],
-                name_of_plot='2D_plot_0-5' + '_' + laz_file_path.split('/')[-1].split('.')[0]
+        for key in range_dict.keys():
+            range_str = key.replace('.', '-')
+            if len(range_dict[key]['gt_trees']) > 0 and len(range_dict[key]['predicted_trees']) > 0:
+                print('len gt trees: ', len(range_dict[key]['gt_trees']))
+                print('len predicted trees: ', len(range_dict[key]['predicted_trees']))
+                self.generate_2D_plot_of_trees(
+                    df_laz, range_dict[key]['gt_trees'], 
+                    range_dict[key]['predicted_trees'],
+                    range_dict[key],  # Pass the metrics dictionary
+                    name_of_plot=f'2D_plot_{range_str}_{laz_file_path.split("/")[-1].split(".")[0]}',
+                    height_range=key  # Pass the height range
                 )
-            
-        # generate 2D projection of the point cloud of the gt trees and predicted trees if both gt trees and predicted trees are in the range 5-10
-        if len(range_dict['5.0-10.0']['gt_trees']) > 0 and len(range_dict['5.0-10.0']['predicted_trees']) > 0:
-            # print length of gt trees and predicted trees
-            print('len gt trees: ', len(range_dict['5.0-10.0']['gt_trees']))
-            print('len predicted trees: ', len(range_dict['5.0-10.0']['predicted_trees']))
-            self.generate_2D_plot_of_trees(
-                df_laz, range_dict['5.0-10.0']['gt_trees'], 
-                range_dict['5.0-10.0']['predicted_trees'],
-                name_of_plot='2D_plot_5-10' + '_' + laz_file_path.split('/')[-1].split('.')[0]
-                )
-        
         return range_dict
 
 
-    def generate_2D_plot_of_trees(self, df_laz, list_of_gt_trees, list_of_pred_trees, name_of_plot='2D_plot'):
+    def generate_2D_plot_of_trees(self, 
+                                  df_laz, 
+                                  list_of_gt_trees, 
+                                  list_of_pred_trees, 
+                                  metrics, 
+                                  name_of_plot='2D_plot',
+                                  height_range=''):
+    
+        print('list_of_gt_trees in the visualization : ', list_of_gt_trees)
+        print('list_of_pred_trees in the visulization: ', list_of_pred_trees)
+        
         # Define the folder where plots will be saved
         save_folder = 'plots'
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
 
         # Define colors with less intensity
-        color_gt = 'lightgreen'  # Light green for gt trees
-        color_pred = 'salmon'  # Salmon for pred trees
+        color_gt = 'gray'  # Light green for gt trees
+        color_pred = 'lightgreen'  # Salmon for pred trees
 
-        # filter df_laz to only contain gt trees and pred trees
-        df_laz_gt_trees = df_laz.loc[df_laz['treeID'].isin(list_of_gt_trees)]
-        df_laz_pred_trees = df_laz.loc[df_laz['preds_instance_segmentation'].isin(list_of_pred_trees)]
+        plt.figure(figsize=(10, 8), dpi=300)  # Adjust the size and resolution
+        plt.style.use('ggplot')  # Use a predefined style for a nicer look
+    
+        for gt_tree in list_of_gt_trees:
+            df_laz_gt_tree = df_laz.loc[df_laz['treeID'] == gt_tree]
+            x, y = df_laz_gt_tree['X'].to_numpy(), df_laz_gt_tree['Y'].to_numpy()
+            points = np.column_stack((x, y))
+            hull = ConvexHull(points)
+            hull_path = np.append(hull.vertices, hull.vertices[0])  # Ensure closure
+            plt.fill(points[hull_path, 0], points[hull_path, 1], 
+                 color=color_gt, alpha=0.3, edgecolor='none', 
+                 linewidth=2, label='Ground Truth Trees' if gt_tree == list_of_gt_trees[0] else "")
+            
+        for pred_tree in list_of_pred_trees:
+            df_laz_pred_tree = df_laz.loc[df_laz['preds_instance_segmentation'] == pred_tree]
+            x, y = df_laz_pred_tree['X'].to_numpy(), df_laz_pred_tree['Y'].to_numpy()
+            points = np.column_stack((x, y))
+            hull = ConvexHull(points)
+            hull_path = np.append(hull.vertices, hull.vertices[0])  # Ensure closure
+            plt.fill(points[hull_path, 0], points[hull_path, 1], 
+                 color=color_pred, alpha=0.3, edgecolor='none', 
+                 linewidth=2, label='Predicted Trees' if pred_tree == list_of_pred_trees[0] else "")
+            
 
-        # Generate 2D array of gt trees and pred trees with x and y coordinates
-        gt_trees_2D = df_laz_gt_trees[['X', 'Y']].to_numpy()
-        pred_trees_2D = df_laz_pred_trees[['X', 'Y']].to_numpy()
+            plt.xlabel('X coordinate')
+            plt.ylabel('Y coordinate')
+            plt.title(name_of_plot)
+            plt.grid(True, linestyle='--', alpha=0.7)
+            plt.gca().set_aspect('equal', adjustable='box')
 
-        # Plot
-        fig, ax = plt.subplots()
-        ax.scatter(gt_trees_2D[:, 0], gt_trees_2D[:, 1], c=color_gt, label='gt trees')
-        ax.scatter(pred_trees_2D[:, 0], pred_trees_2D[:, 1], c=color_pred, label='pred trees')
+            # Automatically generate the legend from the labeled data
+            plt.legend(loc='upper left')
 
-        ax.legend()
-        plt.title(name_of_plot.replace('_', ' ').title())
-        plot_filename = f'{name_of_plot}.png'
-        plt.savefig(os.path.join(save_folder, plot_filename))
-        plt.close(fig)
+        metrics_text = (
+            f"Mean RMSE: {metrics['mean_rmse']}\n"
+            f"Mean F1 Score: {metrics['mean_f1']}\n"
+            f"Detection Rate: {metrics['detection_rate']}\n"
+            f"Omission Rate: {metrics['ommision_rate']}\n"
+            f"Commission Rate: {metrics['commission_rate']}\n"
+            f"Num. GT Trees: {metrics['num_gt_trees']}\n"
+            f"Num. Predicted Trees: {metrics['num_predicted_trees']}\n"
+            f"Num. Trees (IoU > 0.5): {metrics['num_trees_ok_detected']}\n"
+        )
+        plt.text(0.95, 0.95, metrics_text, transform=plt.gca().transAxes, fontsize=9, verticalalignment='top', horizontalalignment='right', bbox=dict(boxstyle="round", alpha=0.5))
+
+        # Additional text for plot name and height range
+        plot_info_text = f"Plot: {name_of_plot}\nHeight Range: {height_range}"
+        plt.text(0.05, 0.05, plot_info_text, transform=plt.gca().transAxes, fontsize=9, horizontalalignment='left', verticalalignment='bottom', bbox=dict(boxstyle="round", alpha=0.5))
+
+        plt.savefig(os.path.join(save_folder, name_of_plot + '.png'), bbox_inches='tight')  # Save the plot with tight bounding box
 
 
     def read_multiple_files(self, folder_name):
