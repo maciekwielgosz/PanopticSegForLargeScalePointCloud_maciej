@@ -13,7 +13,7 @@ import numpy as np
 from nibio_inference.las_to_pandas import las_to_pandas
 import json
 
-HIGH_RANGES = [0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0]
+HIGH_RANGES = [0, 0.5, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0]
 
 # convert HIGH_RANGES to dictionary with keys as index and values as ranges so they sound nice like '0-5'
 HIGH_RANGES_DICT = {}
@@ -80,9 +80,6 @@ class VizualizeSmallTrees(object):
         # read laz file to df_laz
         df_laz = las_to_pandas(laz_file_path)
 
-        # subtract df_laz['Z'].min() from df_laz['Z'] to get the height of the tree
-        # df_laz['Z'] = df_laz['Z'] - df_laz['Z'].min()
-
         gt_trees_with_height_max = df_laz[['treeID', 'Z']].groupby('treeID').max().reset_index()
         gt_trees_with_height_min = df_laz[['treeID', 'Z']].groupby('treeID').min().reset_index()
 
@@ -90,15 +87,8 @@ class VizualizeSmallTrees(object):
         gt_trees_with_height = gt_trees_with_height_max.copy()
         gt_trees_with_height['Z'] = gt_trees_with_height_max['Z'] - gt_trees_with_height_min['Z']
 
-
-        
-        # compute the tree hight by subtracting the min z value from the max z value grouped by treeID
-        
-
         # convert gt_trees_with_height to list of tuples
         gt_trees_with_height = list(zip(gt_trees_with_height['treeID'].tolist(), gt_trees_with_height['Z'].tolist()))
-
-        print('gt_trees_with_height: ', gt_trees_with_height)
 
         df_csv = pd.read_csv(csv_file_path)
 
@@ -116,19 +106,11 @@ class VizualizeSmallTrees(object):
 
             gt_trees = gt_trees_in_range
 
-            # # find the max z value of df_laz
-            # df_dict_laz_tmp = df_laz.loc[(df_laz['Z'] >= HIGH_RANGES[key]) & (df_laz['Z'] < HIGH_RANGES[key+1])]
-            # # get treeID of gt trees
-            # gt_trees =  df_dict_laz_tmp['treeID'].unique()
-
             # compute mean metrics    
             dict_metrics = self.compute_mean_metrics(gt_trees, df_csv_in_range)
 
             # add dict_metrics to range_dict
             range_dict[value] = dict_metrics
-   
-        # print range_dict in a pretty way
-        # print(json.dumps(range_dict, indent=4))
 
         for key in range_dict.keys():
             print('range: ', key)
@@ -139,7 +121,6 @@ class VizualizeSmallTrees(object):
             print('gt trees: ', range_dict[key]['gt_trees'])
             print('predicted trees: ', range_dict[key]['predicted_trees'])
             print('predicted trees ok: ', range_dict[key]['predicted_trees_ok'])
-            # print if there are any trees that are not detected
             print('')
 
         print('range_dict: ', range_dict.keys())
@@ -150,7 +131,8 @@ class VizualizeSmallTrees(object):
                 print('len gt trees: ', len(range_dict[key]['gt_trees']))
                 print('len predicted trees: ', len(range_dict[key]['predicted_trees']))
                 self.generate_2D_plot_of_trees(
-                    df_laz, range_dict[key]['gt_trees'], 
+                    df_laz, 
+                    range_dict[key]['gt_trees'], 
                     range_dict[key]['predicted_trees'],
                     range_dict[key],  # Pass the metrics dictionary
                     name_of_plot=f'2D_plot_{range_str}_{laz_file_path.split("/")[-1].split(".")[0]}',
@@ -175,43 +157,93 @@ class VizualizeSmallTrees(object):
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
 
+
         # Define colors with less intensity
         color_gt = 'gray'  # Light green for gt trees
         color_pred = 'lightgreen'  # Salmon for pred trees
 
         plt.figure(figsize=(10, 8), dpi=300)  # Adjust the size and resolution
-        plt.style.use('ggplot')  # Use a predefined style for a nicer look
+        plt.subplots_adjust(left=0.1)  # Adjust the bottom
+
+
+        plt.xlabel('X coordinate')
+        plt.ylabel('Y coordinate')
+
+ 
+
+        # plt.title(name_of_plot)
+        # plt.grid(True, linestyle='--', alpha=0.7)
+        # plt.grid(False)
+
+        # Calculate the range for x and y
+        x_min, x_max = df_laz['X'].min(), df_laz['X'].max()
+        y_min, y_max = df_laz['Y'].min(), df_laz['Y'].max()
+        x_range = x_max - x_min
+        y_range = y_max - y_min
+
+        plt.xlim(x_min, x_max)
+        plt.ylim(y_min, y_max)
+
+        print("plot name: ", name_of_plot)
+        print('x_min: ', x_min)
+        print('x_max: ', x_max)
+        print('y_min: ', y_min)
+        print('y_max: ', y_max)
+
+        # Find the max range to ensure both x and y axes have the same scale
+        max_range = max(x_range, y_range)
+
+        # Calculate the center of the plot
+        x_center = (x_max + x_min) / 2
+        y_center = (y_max + y_min) / 2
+
+        # Set the limits for x and y axes to ensure the same scale
+        axis_limits = [x_center - max_range , x_center + max_range , y_center - max_range , y_center + max_range ]
+        plt.axis(axis_limits)
+
+        print('axis_limits: ', axis_limits)
+
+
+        # Define the grid interval - this will be your raster size
+        grid_interval = max_range / 5  # for example, 10 grid lines across the max range
+
+        # Set the grid
+        plt.xticks(np.arange(axis_limits[0], axis_limits[1], step=grid_interval))
+        plt.yticks(np.arange(axis_limits[2], axis_limits[3], step=grid_interval))
+        plt.grid(True, linestyle='-', alpha=0.7)
+
+
+        # plt.gca().set_aspect('equal', adjustable='box')
+        # plt.axis('equal')
+
+        # Automatically generate the legend from the labeled data
+        plt.legend(loc='upper left')
+
+        # plt.style.use('ggplot')  # Use a predefined style for a nicer look
     
         for gt_tree in list_of_gt_trees:
             df_laz_gt_tree = df_laz.loc[df_laz['treeID'] == gt_tree]
             x, y = df_laz_gt_tree['X'].to_numpy(), df_laz_gt_tree['Y'].to_numpy()
-            points = np.column_stack((x, y))
-            hull = ConvexHull(points)
-            hull_path = np.append(hull.vertices, hull.vertices[0])  # Ensure closure
-            plt.fill(points[hull_path, 0], points[hull_path, 1], 
-                 color=color_gt, alpha=0.3, edgecolor='none', 
-                 linewidth=2, label='Ground Truth Trees' if gt_tree == list_of_gt_trees[0] else "")
-            
+            if len(x) > 0 and len(y) > 0:  # Check if arrays are not empty
+                points = np.column_stack((x, y))
+                hull = ConvexHull(points)
+                hull_path = np.append(hull.vertices, hull.vertices[0])  # Ensure closure
+                plt.fill(points[hull_path, 0], points[hull_path, 1], 
+                    color=color_gt, alpha=0.3, edgecolor='none', 
+                    linewidth=2, label='Ground Truth Trees' if gt_tree == list_of_gt_trees[0] else "")
+                    
         for pred_tree in list_of_pred_trees:
             df_laz_pred_tree = df_laz.loc[df_laz['preds_instance_segmentation'] == pred_tree]
             x, y = df_laz_pred_tree['X'].to_numpy(), df_laz_pred_tree['Y'].to_numpy()
-            points = np.column_stack((x, y))
-            hull = ConvexHull(points)
-            hull_path = np.append(hull.vertices, hull.vertices[0])  # Ensure closure
-            plt.fill(points[hull_path, 0], points[hull_path, 1], 
-                 color=color_pred, alpha=0.3, edgecolor='none', 
-                 linewidth=2, label='Predicted Trees' if pred_tree == list_of_pred_trees[0] else "")
-            
+            if len(x) > 0 and len(y) > 0:  # Check if arrays are not empty
+                points = np.column_stack((x, y))
+                hull = ConvexHull(points)
+                hull_path = np.append(hull.vertices, hull.vertices[0])  # Ensure closure
+                plt.fill(points[hull_path, 0], points[hull_path, 1], 
+                    color=color_pred, alpha=0.3, edgecolor='none', 
+                    linewidth=2, label='Predicted Trees' if pred_tree == list_of_pred_trees[0] else "")
 
-            plt.xlabel('X coordinate')
-            plt.ylabel('Y coordinate')
-            plt.title(name_of_plot)
-            plt.grid(True, linestyle='--', alpha=0.7)
-            plt.gca().set_aspect('equal', adjustable='box')
-
-            # Automatically generate the legend from the labeled data
-            plt.legend(loc='upper left')
-
+    
         metrics_text = (
             f"Mean RMSE: {metrics['mean_rmse']}\n"
             f"Mean F1 Score: {metrics['mean_f1']}\n"
@@ -222,14 +254,13 @@ class VizualizeSmallTrees(object):
             f"Num. Predicted Trees: {metrics['num_predicted_trees']}\n"
             f"Num. Trees (IoU > 0.5): {metrics['num_trees_ok_detected']}\n"
         )
-        plt.text(0.95, 0.95, metrics_text, transform=plt.gca().transAxes, fontsize=9, verticalalignment='top', horizontalalignment='right', bbox=dict(boxstyle="round", alpha=0.5))
+        plt.figtext(0.02, 0.02, metrics_text, horizontalalignment='left', fontsize=9, bbox=dict(boxstyle="round", alpha=0.5))
 
         # Additional text for plot name and height range
         plot_info_text = f"Plot: {name_of_plot}\nHeight Range: {height_range}"
-        plt.text(0.05, 0.05, plot_info_text, transform=plt.gca().transAxes, fontsize=9, horizontalalignment='left', verticalalignment='bottom', bbox=dict(boxstyle="round", alpha=0.5))
+        plt.figtext(0.5, 0.01, plot_info_text, horizontalalignment='left', fontsize=9, bbox=dict(boxstyle="round", alpha=0.5))
 
-        plt.savefig(os.path.join(save_folder, name_of_plot + '.png'), bbox_inches='tight')  # Save the plot with tight bounding box
-
+        plt.savefig(os.path.join(save_folder, name_of_plot + '.pdf'))
 
     def read_multiple_files(self, folder_name):
         subfolders = [f.path for f in os.scandir(folder_name) if f.is_dir()]
