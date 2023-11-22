@@ -5,6 +5,7 @@ import argparse
 
 
 from scipy.spatial import ConvexHull
+from joblib import Parallel, delayed
 
 
 
@@ -13,7 +14,9 @@ import numpy as np
 from nibio_inference.las_to_pandas import las_to_pandas
 import json
 
-HIGH_RANGES = [0, 0.5, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0]
+# HIGH_RANGES = [0, 0.5, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0]
+
+HIGH_RANGES = [0, 10.0, 25.0, 50.0]
 
 # convert HIGH_RANGES to dictionary with keys as index and values as ranges so they sound nice like '0-5'
 HIGH_RANGES_DICT = {}
@@ -121,19 +124,23 @@ class VizualizeSmallTrees(object):
             print('gt trees: ', range_dict[key]['gt_trees'])
             print('predicted trees: ', range_dict[key]['predicted_trees'])
             print('predicted trees ok: ', range_dict[key]['predicted_trees_ok'])
+            print('num gt trees in metric: ', range_dict[key]['num_gt_trees'])
+            print('num predicted trees in metric: ', range_dict[key]['num_predicted_trees'])
             print('')
 
         print('range_dict: ', range_dict.keys())
 
         for key in range_dict.keys():
             range_str = key.replace('.', '-')
-            if len(range_dict[key]['gt_trees']) > 0 and len(range_dict[key]['predicted_trees']) > 0:
+            if len(range_dict[key]['gt_trees']) > 0 and len(range_dict[key]['predicted_trees']) > 0 and len(range_dict[key]['predicted_trees_ok']) > 0:
                 print('len gt trees: ', len(range_dict[key]['gt_trees']))
                 print('len predicted trees: ', len(range_dict[key]['predicted_trees']))
+                print('len predicted trees ok: ', len(range_dict[key]['predicted_trees_ok']))
                 self.generate_2D_plot_of_trees(
                     df_laz, 
                     range_dict[key]['gt_trees'], 
                     range_dict[key]['predicted_trees'],
+                    range_dict[key]['predicted_trees_ok'],
                     range_dict[key],  # Pass the metrics dictionary
                     name_of_plot=f'2D_plot_{range_str}_{laz_file_path.split("/")[-1].split(".")[0]}',
                     height_range=key  # Pass the height range
@@ -145,12 +152,14 @@ class VizualizeSmallTrees(object):
                                   df_laz, 
                                   list_of_gt_trees, 
                                   list_of_pred_trees, 
+                                  list_of_pred_trees_ok,
                                   metrics, 
                                   name_of_plot='2D_plot',
                                   height_range=''):
     
         print('list_of_gt_trees in the visualization : ', list_of_gt_trees)
         print('list_of_pred_trees in the visulization: ', list_of_pred_trees)
+        print('list_of_pred_trees_ok in the visulization: ', list_of_pred_trees_ok)
         
         # Define the folder where plots will be saved
         save_folder = 'plots'
@@ -160,7 +169,8 @@ class VizualizeSmallTrees(object):
 
         # Define colors with less intensity
         color_gt = 'gray'  # Light green for gt trees
-        color_pred = 'lightgreen'  # Salmon for pred trees
+        color_pred = 'red'  # Salmon for pred trees
+        color_pred_ok = 'lightgreen'  # Salmon for pred trees
 
         plt.figure(figsize=(10, 8), dpi=300)  # Adjust the size and resolution
         plt.subplots_adjust(left=0.1)  # Adjust the bottom
@@ -208,9 +218,9 @@ class VizualizeSmallTrees(object):
         grid_interval = max_range / 5  # for example, 10 grid lines across the max range
 
         # Set the grid
-        plt.xticks(np.arange(axis_limits[0], axis_limits[1], step=grid_interval))
-        plt.yticks(np.arange(axis_limits[2], axis_limits[3], step=grid_interval))
-        plt.grid(True, linestyle='-', alpha=0.7)
+        plt.xticks(np.arange(axis_limits[0], axis_limits[1], step=grid_interval, dtype=int))
+        plt.yticks(np.arange(axis_limits[2], axis_limits[3], step=grid_interval, dtype=int))
+        # plt.grid(True, linestyle='-', alpha=0.7)
 
 
         # plt.gca().set_aspect('equal', adjustable='box')
@@ -229,10 +239,22 @@ class VizualizeSmallTrees(object):
                 hull = ConvexHull(points)
                 hull_path = np.append(hull.vertices, hull.vertices[0])  # Ensure closure
                 plt.fill(points[hull_path, 0], points[hull_path, 1], 
-                    color=color_gt, alpha=0.3, edgecolor='none', 
+                    color=color_gt, alpha=0.6, edgecolor='none', 
                     linewidth=2, label='Ground Truth Trees' if gt_tree == list_of_gt_trees[0] else "")
                     
-        for pred_tree in list_of_pred_trees:
+        for pred_tree_ok in list_of_pred_trees_ok:
+            df_laz_pred_tree_ok = df_laz.loc[df_laz['preds_instance_segmentation'] == pred_tree_ok]
+            x, y = df_laz_pred_tree_ok['X'].to_numpy(), df_laz_pred_tree_ok['Y'].to_numpy()
+            if len(x) > 0 and len(y) > 0:
+                points = np.column_stack((x, y))
+                hull = ConvexHull(points)
+                hull_path = np.append(hull.vertices, hull.vertices[0])
+                plt.fill(points[hull_path, 0], points[hull_path, 1],
+                            color=color_pred_ok, alpha=0.4, edgecolor='none',
+                            linewidth=2, label='Predicted Trees OK' if pred_tree_ok == list_of_pred_trees_ok[0] else "")
+
+    
+        for pred_tree in [item for item in list_of_pred_trees if item not in list_of_pred_trees_ok]:
             df_laz_pred_tree = df_laz.loc[df_laz['preds_instance_segmentation'] == pred_tree]
             x, y = df_laz_pred_tree['X'].to_numpy(), df_laz_pred_tree['Y'].to_numpy()
             if len(x) > 0 and len(y) > 0:  # Check if arrays are not empty
@@ -240,10 +262,10 @@ class VizualizeSmallTrees(object):
                 hull = ConvexHull(points)
                 hull_path = np.append(hull.vertices, hull.vertices[0])  # Ensure closure
                 plt.fill(points[hull_path, 0], points[hull_path, 1], 
-                    color=color_pred, alpha=0.3, edgecolor='none', 
+                    color=color_pred, alpha=0.4, edgecolor='none', 
                     linewidth=2, label='Predicted Trees' if pred_tree == list_of_pred_trees[0] else "")
+                
 
-    
         metrics_text = (
             f"Mean RMSE: {metrics['mean_rmse']}\n"
             f"Mean F1 Score: {metrics['mean_f1']}\n"
@@ -254,8 +276,7 @@ class VizualizeSmallTrees(object):
             f"Num. Predicted Trees: {metrics['num_predicted_trees']}\n"
             f"Num. Trees (IoU > 0.5): {metrics['num_trees_ok_detected']}\n"
         )
-        plt.figtext(0.02, 0.02, metrics_text, horizontalalignment='left', fontsize=9, bbox=dict(boxstyle="round", alpha=0.5))
-
+        plt.figtext(0.55, 0.8, metrics_text, horizontalalignment='left', fontsize=9, bbox=dict(boxstyle="round", alpha=0.5))
         # Additional text for plot name and height range
         plot_info_text = f"Plot: {name_of_plot}\nHeight Range: {height_range}"
         plt.figtext(0.5, 0.01, plot_info_text, horizontalalignment='left', fontsize=9, bbox=dict(boxstyle="round", alpha=0.5))
@@ -267,29 +288,27 @@ class VizualizeSmallTrees(object):
         dataframes = {}
 
         for subfolder in subfolders:
-            subfolder_name = subfolder.split('/')[-1]
-            # get list of files in each subfolder in 'metrics_out' folder and exlude 'summary_metrics_all_plots.csv'
-            csv_files = [f.path for f in os.scandir(os.path.join(subfolder, 'metrics_out')) if f.is_file() and f.name != 'summary_metrics_all_plots.csv']
+        # Get list of .csv files in 'metrics_out' subfolder, excluding 'summary_metrics_all_plots.csv'
+            csv_files = [f.path for f in os.scandir(os.path.join(subfolder, 'metrics_out')) if f.is_file() and f.name.endswith('.csv') and f.name != 'summary_metrics_all_plots.csv']
 
-            # get list of laz files in each subfolder
+            # Get list of .laz files in each subfolder
             laz_files = [f.path for f in os.scandir(subfolder) if f.is_file() and f.name.endswith('.laz')]
 
-            # laz_files and csv_files contain the same strings, so we can use the same index to get the corresponding laz file
-            # index them and create a list of tuples
+            # Match .laz files with .csv files based on filename (excluding extension)
             laz_and_csv_files = []
+            for laz_file in laz_files:
+                base_name = os.path.splitext(os.path.basename(laz_file))[0]
+                matching_csv = next((csv for csv in csv_files if os.path.splitext(os.path.basename(csv))[0] == base_name), None)
+                if matching_csv:
+                    laz_and_csv_files.append((laz_file, matching_csv))
 
-            for i in range(len(csv_files)):
-                # check if part of csv file name is in laz file name
-                for laz_file in laz_files:
-                    if csv_files[i].split('/')[-1].split('_')[0] in laz_file:
-                        # create tuple with laz file and csv file
-                        laz_and_csv_files.append((laz_file, csv_files[i]))
-
-            print(laz_and_csv_files)
+                print(laz_and_csv_files)
 
 
-            for file in laz_and_csv_files:
-                self.read_single_csv_and_parse(file)
+            # for file in laz_and_csv_files:
+            #     self.read_single_csv_and_parse(file)
+            Parallel(n_jobs=-1)(delayed(self.read_single_csv_and_parse)(file) for file in laz_and_csv_files)
+
         
 
 if __name__ == '__main__':
