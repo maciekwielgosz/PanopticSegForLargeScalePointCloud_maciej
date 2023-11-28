@@ -174,3 +174,7 @@ outputs/
 **/__pycache__/
 
 check_list.info
+
+*.pdf
+*.png
+*.csv
