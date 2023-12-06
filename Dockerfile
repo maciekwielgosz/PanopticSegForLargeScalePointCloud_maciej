@@ -50,7 +50,7 @@ RUN python3.8 -m pip install --no-cache-dir --upgrade \
 
 ENV CU_VERSION=cu111
 # 8.0 for BM.GPU4.8, 7.0 for local
-ENV TORCH_CUDA_ARCH_LIST_VER="8.0+PTX" 
+ENV TORCH_CUDA_ARCH_LIST_VER="7.0+PTX" 
 
 RUN python3.8 -m pip install --no-cache-dir \
     torch==1.9.0+${CU_VERSION} \
@@ -227,14 +227,20 @@ RUN wget https://github.com/scikit-learn-contrib/hdbscan/archive/master.zip && \
 
 RUN python3.8 -m pip install --no-cache-dir \
     numba==0.57.1 \
-    numpy==1.24.4
+    numpy==1.24.4 \
+    jaklas \
+    dask==2021.8.1
 
 # make sure thatdatascience folder exists (to the used on the oracle)
 RUN mkdir -p /home/datascience
 
-COPY . /app
+# default config
+# COPY . /app
+# WORKDIR /app
 
-WORKDIR /app
+# default config
+COPY . /home/nibio/mutable-outside-world
+WORKDIR /home/nibio/mutable-outside-world
 
 
 # run training
@@ -246,4 +252,4 @@ WORKDIR /app
 #             "training=treeins", \
 #             "job_name=treeins_my_first_run"]
 
-ENTRYPOINT ["bash", "run_pipeline.sh"]
+ENTRYPOINT ["bash", "run_oracle_pipeline.sh"]
