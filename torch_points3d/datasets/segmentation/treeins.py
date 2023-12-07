@@ -206,6 +206,7 @@ class TreeinsOriginalFused(InMemoryDataset):
         self.grid_size = grid_size
      
         super(TreeinsOriginalFused, self).__init__(root, transform, pre_transform, pre_filter)
+        
         # @Treeins: case for training/when running train.py
         if len(self.test_area)==0 or isinstance(self.test_area[0], int):
             
@@ -314,12 +315,14 @@ class TreeinsOriginalFused(InMemoryDataset):
         if feats is not None:
             return feats.shape[-1]
         return 0
-    #def download(self):
+    def download(self):
+        pass
     #    super().download()
 
     def process(self):
         """Takes the given .ply files, processes them and saves the newly created files in self.processed_dir.
         This method is used during training/running train.py."""
+
 
         if not os.path.exists(self.pre_processed_path):# @Treeins: if we haven't already processed the raw .ply data files in a previous run with the same grid_size and forest_regions
             input_ply_files = self.raw_file_names
@@ -535,7 +538,8 @@ class TreeinsSphere(TreeinsOriginalFused):
             super().process_test(self.test_area)
 
     def download(self):  # We have to include this method, otherwise the parent class skips download
-        super().download()
+        # super().download()
+        pass
 
     def _get_random(self):
         # Random spheres biased towards getting more low frequency classes
