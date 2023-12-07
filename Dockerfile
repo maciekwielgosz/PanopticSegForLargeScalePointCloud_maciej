@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04 as builder
 # FROM nvidia/cuda:10.2-devel-ubuntu18.04
 
 RUN ln -fs /usr/share/zoneinfo/Europe/Oslo /etc/localtime
@@ -224,6 +224,42 @@ RUN wget https://github.com/scikit-learn-contrib/hdbscan/archive/master.zip && \
     python3.8 -m pip install -r requirements.txt && \
     python3.8 setup.py install
 
+# Clean up unnecessary files and caches
+RUN apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
+    find /usr/local -depth \
+    \( \
+      \( -type d -a -name test -o -name tests \) \
+      -o \
+      \( -type f -a -name '*.pyc' -o -name '*.pyo' \) \
+    \) -exec rm -rf '{}' + ;
+
+
+# Stage 2: Final stage
+FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04 AS final
+
+# Set timezone
+RUN ln -fs /usr/share/zoneinfo/Europe/Oslo /etc/localtime
+
+# Copy only necessary files and packages from the builder stage
+# Only copy necessary files from the builder stage
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /usr/local/lib /usr/local/lib
+COPY --from=builder /usr/local/include /usr/local/include
+
+
+# Install Python and other essential packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libopenblas-base \
+    python3.8 \
+    python3.8-dev \
+    python3-pip \
+    wget \
+    unzip \
+    # ... (any other packages that are required at runtime) ...
+    && rm -rf /var/lib/apt/lists/*
+
+
 
 RUN python3.8 -m pip install --no-cache-dir \
     numba==0.57.1 \
@@ -231,25 +267,12 @@ RUN python3.8 -m pip install --no-cache-dir \
     jaklas \
     dask==2021.8.1
 
-# make sure thatdatascience folder exists (to the used on the oracle)
+# make sure that datascience folder exists (to be used in the oracle)
 RUN mkdir -p /home/datascience
-
-# default config
-# COPY . /app
-# WORKDIR /app
 
 # default config
 COPY . /home/nibio/mutable-outside-world
 WORKDIR /home/nibio/mutable-outside-world
 
-
 # run training
-# ENTRYPOINT ["python3", "train.py", \
-#             "task=panoptic", \
-#             "data=panoptic/treeins_rad8", \
-#             "models=panoptic/area4_ablation_3heads_5", \
-#             "model_name=PointGroup-PAPER", \
-#             "training=treeins", \
-#             "job_name=treeins_my_first_run"]
-
 ENTRYPOINT ["bash", "run_oracle_pipeline.sh"]
