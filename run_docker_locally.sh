@@ -12,21 +12,23 @@ else
 fi
 
 # Check if the image exists
-# if [ $(docker image ls -q -f reference=$IMAGE_NAME) ]; then
-#     echo "Removing existing image $IMAGE_NAME"
-#     docker image rm $IMAGE_NAME
-# else
-#     echo "Image $IMAGE_NAME does not exist."
-# fi
+if [ $(docker image ls -q -f reference=$IMAGE_NAME) ]; then
+    echo "Removing existing image $IMAGE_NAME"
+    docker image rm $IMAGE_NAME
+else
+    echo "Image $IMAGE_NAME does not exist."
+fi
 
-./build.sh
+# ./build.sh
+docker build -t $IMAGE_NAME .
 
 echo "Running the container"
 # docker run -it --gpus all --name $CONTAINER_NAME $IMAGE_NAME > e2e-instance.log 2>&1
 
 docker run -it --gpus all \
     --name $CONTAINER_NAME \
-    --mount type=bind,source=/home/nibio/mutable-outside-world/code/PanopticSegForLargeScalePointCloud_maciej/data_bucket,target=/home/data_bucket \
+    --mount type=bind,source=/home/nibio/mutable-outside-world/code/PanopticSegForLargeScalePointCloud_maciej/bucket_in_folder,target=/home/nibio/mutable-outside-world/bucket_in_folder \
+    --mount type=bind,source=/home/nibio/mutable-outside-world/code/PanopticSegForLargeScalePointCloud_maciej/bucket_out_folder,target=/home/nibio/mutable-outside-world/bucket_out_folder \
     $IMAGE_NAME 
 
 

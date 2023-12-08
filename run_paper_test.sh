@@ -2,12 +2,19 @@
 export PYTHONPATH='/home/nibio/mutable-outside-world'
 
 # Base directories
-BASE_DIR=~/data/test_data_agnostic_instanceSeg
+# BASE_DIR=~/data/test_data_agnostic_instanceSeg
+
+BASE_DIR=/home/nibio/data/timing_check
 
 # BASE_DIR=/home/nibio/mutable-outside-world/maciek_1_2_3  # Debugging
 
 # Plot names
-declare -a PLOTS=("austrian_plot" "english_plot" "for_instance" "german_plot" "mls")
+# declare -a PLOTS=("austrian_plot" "english_plot" "for_instance" "german_plot" "mls")
+
+declare -a PLOTS=("austrian_plot" "english_plot" "for_instance_no_outer" "german_plot" "mls")
+
+# declare -a PLOTS=("for_instance_no_outer")
+
 
 # declare -a PLOTS=("b_0" "b_1")  # Debugging
 
@@ -19,7 +26,11 @@ run_inference_tests() {
 
     for PLOT in "${PLOTS[@]}"; do
         echo "Running paper test for ${PLOT}"
+        start_time=$(date +%s.%N)  # Record start time
         bash run_inference.sh ${ORIGINAL_DIR}/${PLOT}/ ${RESULTS_DIR}/${PLOT}_out/
+        end_time=$(date +%s.%N)  # Record end time
+        execution_time=$(echo "$end_time - $start_time" | bc)  # Calculate execution time
+        echo "Execution time for ${PLOT}: ${execution_time} seconds"
     done
 }
 
@@ -47,7 +58,7 @@ run_paper_tests() {
     local RESULTS_DIR=${BASE_DIR}/results_$(echo ${DATASET_NAME} | grep -oP '\d+')
 
     run_inference_tests ${ORIGINAL_DIR} ${RESULTS_DIR}
-    run_metrics ${RESULTS_DIR}
+    # run_metrics ${RESULTS_DIR}
 
     echo "Done with paper tests for ${DATASET_NAME}"
 }
