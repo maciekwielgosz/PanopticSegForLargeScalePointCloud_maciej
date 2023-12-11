@@ -1,7 +1,8 @@
 import os
-import numpy as np
 import pandas as pd
+from scipy.spatial import cKDTree
 from nibio_inference.las_to_pandas import las_to_pandas
+import numpy as np
 
 
 class Viz():
@@ -60,8 +61,6 @@ class Viz():
         print("Type of GT_LABEL:", type(self.GT_LABEL))
         print("Type of DataFrame column name:", type(csv_df.columns[2]))  # Assuming 'gt_label(dominant_label)' is the third column
 
-
-
         # print name of columns
         csv_df.columns = csv_df.columns.str.strip()
 
@@ -85,8 +84,7 @@ class Viz():
         pred_df = self._get_pred_df()
         csv_dict = self._get_cvs_df()
 
-        print(gt_df['treeID'])
-
+        # iterate through csv_dict
         for gt_label in csv_dict:
             pred_label = csv_dict[gt_label]
             gt_df_filtered = gt_df[gt_df['treeID'] == gt_label]
@@ -104,38 +102,45 @@ class Viz():
             pred_df_xyz['B'] = 0
 
             # Ignore points that do not exist in both gt and pred dataframes
-            common_points = np.intersect1d(gt_df_xyz.index, pred_df_xyz.index)
-            gt_df_xyz_outliers = gt_df_xyz.loc[common_points]
-            pred_df_xyz_outliers = pred_df_xyz.loc[common_points]
-
-            # compute mean distance between gt and pred xyz
-            gt_xyz = gt_df_xyz_outliers[['X', 'Y', 'Z']].to_numpy()
-            pred_xyz = pred_df_xyz_outliers[['X', 'Y', 'Z']].to_numpy()
-            # compute mean distance
-            mean_distance = np.mean(np.linalg.norm(gt_xyz - pred_xyz, axis=1))
-            # comppute numer of outliers
-            num_outliers = np.sum(np.linalg.norm(gt_xyz - pred_xyz, axis=1) > 0.5)
-
-            if self.verbose:
-                print(f'gt_label: {gt_label}, pred_label: {pred_label}, mean_distance: {mean_distance}')
-                print(f'gt_label: {gt_label}, pred_label: {pred_label}, num_outliers: {num_outliers}')
-
+          
             # save as csv with name of gt_label and pred_label combined with _ as filename in output_path
             df = pd.concat([gt_df_xyz, pred_df_xyz])
             df.to_csv(f'{self.output_path}/{gt_label}_{pred_label}.csv')
 
             # find the x, y, z coordinates of the outliers
-            outliers_xyz = gt_df_xyz_outliers[np.linalg.norm(gt_xyz - pred_xyz, axis=1) > 0.5].copy()
+            # Build a KDTree for efficient nearest neighbor search
+            pred_tree = cKDTree(pred_df_filtered[['X', 'Y', 'Z']].to_numpy())
 
-            # save as csv with name of gt_label and pred_label combined with _ as filename in output_path
-            df = pd.DataFrame(outliers_xyz, columns=['X', 'Y', 'Z'])
-            # add R, G, B columns and mark them as RGB  red
-            df['R'] = 255
-            df['G'] = 0
-            df['B'] = 0
-            df.to_csv(f'{self.output_path}/{gt_label}_{pred_label}_outliers.csv')
+            # Find nearest neighbors and distances
+            distances, _ = pred_tree.query(gt_df_filtered[['X', 'Y', 'Z']], k=1)
 
+            # compute the mean distance
+            mean_distance = distances.mean()
+            print(f'mean_distance: {mean_distance}')
 
+            # Mark outliers
+
+            # Compute z-scores
+            z_scores = (distances - mean_distance) / np.std(distances)
+
+            # Define a threshold for outliers
+            outlier_threshold = 2.5
+
+            # Create a mask for outliers
+            outliers_mask = z_scores > outlier_threshold
+            outliers_df = gt_df_filtered[outliers_mask].copy()
+
+            # Save outliers to CSV
+            outliers_df['R'] = 255
+            outliers_df['G'] = 0
+            outliers_df['B'] = 0
+            outliers_df.to_csv(f'{self.output_path}/{gt_label}_{pred_label}_outliers.csv')
+
+            if self.verbose:
+                num_outliers = len(outliers_df)
+                print(f'gt_label: {gt_label}, pred_label: {pred_label}, num_outliers: {num_outliers}')
+
+          
 
 if __name__ == '__main__':
     viz = Viz(
