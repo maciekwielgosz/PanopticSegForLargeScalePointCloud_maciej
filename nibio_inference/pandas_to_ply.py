@@ -15,6 +15,9 @@ def pandas_to_ply(csv, csv_file_provided=False, output_file_path=None):
 
     # remove duplicated columns
     df = df.loc[:,~df.columns.duplicated()]
+
+    # Replace spaces in column names with underscores
+    df.columns = [col.replace(' ', '_') for col in df.columns]
  
     # Create a structured numpy array with dtype based on the columns of the DataFrame
     dtypes = [(col, 'f4') for col in df.columns]
