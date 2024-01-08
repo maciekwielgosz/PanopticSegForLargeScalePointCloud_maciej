@@ -60,7 +60,10 @@ class MergePtSsIsInFolders(object):
                 semantic_segmentation=item[1],
                 instance_segmentation=item[2],
                 # save the merged file in the output_data_folder_path with the same name as the input file but .laz extension
-                output_file_path=os.path.join(self.output_data_folder_path, os.path.basename(item[0]).split('.')[0] + '.laz'),
+                # output_file_path=os.path.join(self.output_data_folder_path, os.path.basename(item[0]).split('.')[0] + '.laz'),
+                output_file_path=os.path.join(self.output_data_folder_path, os.path.basename(item[0]).split('.')[0] + '.las'),
+
+                # output_file_path=os.path.join(self.output_data_folder_path, os.path.basename(item[0]).split('.')[0] + '.csv'),
                 verbose=self.verbose
                 )()
 

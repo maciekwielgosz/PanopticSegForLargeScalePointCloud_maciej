@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-from scipy.spatial import cKDTree
 from nibio_inference.las_to_pandas import las_to_pandas
 import numpy as np
 
@@ -107,28 +106,19 @@ class Viz():
             df = pd.concat([gt_df_xyz, pred_df_xyz])
             df.to_csv(f'{self.output_path}/{gt_label}_{pred_label}.csv')
 
-            # find the x, y, z coordinates of the outliers
-            # Build a KDTree for efficient nearest neighbor search
-            pred_tree = cKDTree(pred_df_filtered[['X', 'Y', 'Z']].to_numpy())
+            # Find outliers based on false positives and false negatives
+            # outliers are points that exist in gt but not in pred or vice versa
+            # outliers are marked as RGB red
+            # find points which are gt_df_xyz but not pred_df_xyz and vice versa
+            # drop first column which is index column from df
 
-            # Find nearest neighbors and distances
-            distances, _ = pred_tree.query(gt_df_filtered[['X', 'Y', 'Z']], k=1)
+            df_only_xyz = df[['X', 'Y', 'Z']].copy()    
 
-            # compute the mean distance
-            mean_distance = distances.mean()
-            print(f'mean_distance: {mean_distance}')
+           # mark as outliers the points which are not duplicated
+            outliers_df = df_only_xyz.drop_duplicates(keep=False)
 
-            # Mark outliers
 
-            # Compute z-scores
-            z_scores = (distances - mean_distance) / np.std(distances)
-
-            # Define a threshold for outliers
-            outlier_threshold = 2.5
-
-            # Create a mask for outliers
-            outliers_mask = z_scores > outlier_threshold
-            outliers_df = gt_df_filtered[outliers_mask].copy()
+            print("df_only_xyz:", df_only_xyz.head())
 
             # Save outliers to CSV
             outliers_df['R'] = 255

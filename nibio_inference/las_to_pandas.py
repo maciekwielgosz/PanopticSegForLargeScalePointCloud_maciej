@@ -7,11 +7,13 @@ import laspy
 def las_to_pandas(las_file_path, csv_file_path=None):
     file_content = laspy.read(las_file_path)
 
+    basic_dimensions = list(file_content.point_format.dimension_names)
+
     # List all the available basic parameters from the LAS file
-    basic_dimensions = ['X', 'Y', 'Z', 'intensity', 'return_num', 'num_returns',
-                        'scan_direction_flag', 'edge_of_flight_line', 'classification',
-                        'synthetic', 'key_point', 'withheld', 'scan_angle_rank',
-                        'user_data', 'pt_src_id']
+    # basic_dimensions = ['X', 'Y', 'Z', 'intensity', 'return_num', 'num_returns',
+    #                     'scan_direction_flag', 'edge_of_flight_line', 'classification',
+    #                     'synthetic', 'key_point', 'withheld', 'scan_angle_rank',
+    #                     'user_data', 'pt_src_id']
     
     # Filter only available dimensions
     available_dimensions = [dim for dim in basic_dimensions if hasattr(file_content, dim.lower())]
@@ -21,6 +23,9 @@ def las_to_pandas(las_file_path, csv_file_path=None):
     
     # Fetch any extra dimensions
     gt_extra_dimensions = list(file_content.point_format.extra_dimension_names)
+
+    # get only the extra dimensions which are not already in the basic dimensions
+    gt_extra_dimensions = list(set(gt_extra_dimensions) - set(available_dimensions))
 
     if gt_extra_dimensions:
         extra_points = np.vstack([getattr(file_content, dim) for dim in gt_extra_dimensions]).T

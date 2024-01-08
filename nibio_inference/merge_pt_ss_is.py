@@ -72,6 +72,8 @@ class MergePtSsIs(object):
         # semantic_segmentation_df.to_csv(self.semantic_segmentation.replace('.ply', '.csv'))
         # instance_segmentation_df.to_csv(self.instance_segmentation.replace('.ply', '.csv'))
 
+        print('instance_segmentation_df.columns:', instance_segmentation_df.columns)
+
         # Rename columns for semantic and instance segmentations
         semantic_segmentation_df.columns = [f'{col}_semantic_segmentation' for col in semantic_segmentation_df.columns]
         instance_segmentation_df.columns = [f'{col}_instance_segmentation' for col in instance_segmentation_df.columns]
@@ -93,6 +95,20 @@ class MergePtSsIs(object):
 
         # remove the following columns from the merged data frame : x_semantic_segmentation, y_semantic_segmentation, z_semantic_segmentation
         merged_df.drop(columns=['x_semantic_segmentation', 'y_semantic_segmentation', 'z_semantic_segmentation'], inplace=True)
+
+        # remove the following colum 'gt_semantic_segmentation' from the merged data frame
+        merged_df.drop(columns=['gt_semantic_segmentation'], inplace=True)
+
+        # where in column 'preds_instance_segmentation' there is no value, replace it with the value from column 'preds_semantic_segmentation'
+        merged_df['preds_instance_segmentation'] = merged_df['preds_instance_segmentation'].fillna(merged_df['preds_semantic_segmentation'])
+
+        # rename column 'preds_semantic_segmentation' to 'predSemantic'
+        merged_df.rename(columns={'preds_semantic_segmentation': 'PredSemantic'}, inplace=True)
+
+        # rename column 'preds_instance_segmentation' to 'predInstance'
+        merged_df.rename(columns={'preds_instance_segmentation': 'PredInstance'}, inplace=True)
+
+        print('merged_df.columns:', merged_df.columns)
 
         # Post-process merged data
         min_values_path = self.point_cloud.replace('.ply', '_min_values.json')
@@ -142,20 +158,20 @@ class MergePtSsIs(object):
         #     output_file_path=self.output_file_path
         #     )
         
-        # pandas_to_las(
-        #     merged_df,
-        #     csv_file_provided=False,
-        #     output_file_path=self.output_file_path
-        #     )
+        pandas_to_las(
+            merged_df,
+            csv_file_provided=False,
+            output_file_path=self.output_file_path,
+            do_compress=True,
+            verbose='True'
+            )
         
-    
-
         # save the merged data frame to a file using jaklas as a .las file
-        jaklas.write(merged_df, self.output_file_path, point_format=2, scale=(0.001, 0.001, 0.001))
+        # jaklas.write(merged_df, self.output_file_path, point_format=3, scale=(0.001, 0.001, 0.001))
 
-        # convert to laz
-        las = laspy.read(self.output_file_path)
-        las.write(self.output_file_path.replace('.las', '.laz'), do_compress=True)
+        # # convert to laz
+        # las = laspy.read(self.output_file_path)
+        # las.write(self.output_file_path.replace('.las', '.laz'), do_compress=True)
 
 
     def run(self):

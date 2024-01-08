@@ -1,11 +1,9 @@
-import collections
 import laspy
 import pandas as pd
-import numpy as np
 
-# works with laspy 2.1.2
+# works with laspy 2.1.2 (the other versions are not tested)
 
-def pandas_to_las(csv, csv_file_provided=False, output_file_path=None,  verbose=False):
+def pandas_to_las(csv, csv_file_provided=False, output_file_path=None, do_compress=False, verbose=False):
     """
     Convert a pandas DataFrame to a .las file.
 
@@ -29,29 +27,38 @@ def pandas_to_las(csv, csv_file_provided=False, output_file_path=None,  verbose=
     else:
         df = csv
 
-    data_types = {
+    standard_columns_with_data_types = {
     'X': 'int32',
     'Y': 'int32',
     'Z': 'int32',
     'intensity': 'uint16',
     'return_number': 'uint8',
     'number_of_returns': 'uint8',
-    'scan_direction_flag': 'uint8',
-    'edge_of_flight_line': 'uint8',
-    'classification': 'uint8',
     'synthetic': 'uint8',
     'key_point': 'uint8',
     'withheld': 'uint8',
-    'scan_angle_rank': 'int8',
+    'overlap': 'uint8',  # Data type not specified in the provided formats
+    'scanner_channel': 'uint8',  # Data type not specified in the provided formats
+    'scan_direction_flag': 'uint8',
+    'edge_of_flight_line': 'uint8',
+    'classification': 'uint8',
     'user_data': 'uint8',
+    'scan_angle': 'uint16',  # Data type not specified in the provided formats
+    'scan_angle_rank': 'int8',
     'point_source_id': 'uint16',
     'gps_time': 'float64',
-    'Amplitude': 'float64',
-    'Pulse_width': 'float64',
-    'Reflectance': 'float64',
-    'Deviation': 'int32',
-    'PredSemantic' : 'uint8',
-    'PredInstance' : 'uint16',
+    'red': 'uint16',  # Data type not specified in the provided formats
+    'green': 'uint16',  # Data type not specified in the provided formats
+    'blue': 'uint16'   # Data type not specified in the provided formats
+    }
+
+    extended_columns_with_data_types = {
+        'Amplitude': 'float64',
+        'Pulse_width': 'float64',
+        'Reflectance': 'float64',
+        'Deviation': 'int32',
+        'PredSemantic' : 'uint8',
+        'PredInstance' : 'uint16',
     }
 
     # Standardize column names to match LAS format
@@ -62,7 +69,7 @@ def pandas_to_las(csv, csv_file_provided=False, output_file_path=None,  verbose=
     offset = [df['X'].min(), df['Y'].min(), df['Z'].min()]  # Minimum values as offsets
 
     # Create a new .las file with correct header information
-    las_header = laspy.LasHeader(point_format=7, version="1.4")
+    las_header = laspy.LasHeader(point_format=6, version="1.4")
     las_header.scale = scale
     las_header.offset = offset
 
@@ -84,9 +91,15 @@ def pandas_to_las(csv, csv_file_provided=False, output_file_path=None,  verbose=
     # get extra columns as columns which don't match
     extra_columns = [column for column in df.columns if column not in standard_columns]
 
+    # check if the extra columns exist in the extended_columns_with_data_types dictionary
+    # for those which do not exist, take the data type from data frame
+    for column in extra_columns:
+        if column not in extended_columns_with_data_types.keys():
+            extended_columns_with_data_types[column] = df[column].dtype
+
     # add extra columns to the las file with the correct data types
     for column in extra_columns:
-        las_header.add_extra_dim(laspy.ExtraBytesParams(name=column, type=data_types[column]))
+        las_header.add_extra_dim(laspy.ExtraBytesParams(name=column, type=extended_columns_with_data_types[column]))
 
     # create a new las file with the correct header information
     las_file = laspy.LasData(las_header)
@@ -98,14 +111,27 @@ def pandas_to_las(csv, csv_file_provided=False, output_file_path=None,  verbose=
 
     # add standard columns to the las file with the correct data types
     for column in columns_which_match:
-        las_file[column] = df[column].astype(data_types[column])
+        las_file[column] = df[column].astype(standard_columns_with_data_types[column])
 
     # add extra columns to the las file with the correct data types
     for column in extra_columns:
-        las_file[column] = df[column].astype(data_types[column])
+        las_file[column] = df[column].astype(extended_columns_with_data_types[column])
 
-    # Write the file
-    las_file.write(output_file_path, do_compress=False)
+    # Write the file to disk
+    if do_compress:
+        output_file_path = output_file_path.replace('.las', '.laz')
+        las_file.write(output_file_path, do_compress=True)
+    else:
+        las_file.write(output_file_path, do_compress=False)
+
+    if verbose:
+        if csv_file_provided:
+            print('The input file was is {}'.format(csv))
+        
+        if do_compress:
+            print('File saved as: {}'.format(output_file_path.replace('.las', '.laz')))
+        else:
+            print('File saved as: {}'.format(output_file_path))
 
 
 

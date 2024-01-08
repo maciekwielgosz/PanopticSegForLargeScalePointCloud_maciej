@@ -339,6 +339,7 @@ class InstanceSegmentationMetrics:
                 'f1_score': f1_score,
                 'IoU': IoU,
                 }
+
                 metric_dict[str(label)] = tmp_dict
             
         # list of interesting metrics 
@@ -374,7 +375,9 @@ class InstanceSegmentationMetrics:
                     metric_dict_mean[parameter] += value[parameter]
 
             for parameter in interesting_parameters:
-                metric_dict_mean[parameter] = metric_dict_mean[parameter] / len(metric_dict)
+                # metric_dict_mean[parameter] = metric_dict_mean[parameter] /  len(np.unique(self.input_las[self.GT_LABEL_NAME]))
+                metric_dict_mean[parameter] = metric_dict_mean[parameter] /  len(metric_dict) # local metric
+
                 if parameter == 'rmse_hight':
                     # compute sqrt of the residual hight (we are computing RMSE)
                     metric_dict_mean[parameter] = metric_dict_mean[parameter] ** 0.5
