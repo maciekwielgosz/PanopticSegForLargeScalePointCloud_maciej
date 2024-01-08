@@ -25,65 +25,87 @@ def pandas_to_las(csv, csv_file_provided=False, output_file_path=None,  verbose=
     # Check if the csv_file_provided argument is provided
 
     if csv_file_provided:
-        df = pd.read_csv(csv)
+        df = pd.read_csv(csv, sep=',')
     else:
         df = csv
 
+    data_types = {
+    'X': 'int32',
+    'Y': 'int32',
+    'Z': 'int32',
+    'intensity': 'uint16',
+    'return_number': 'uint8',
+    'number_of_returns': 'uint8',
+    'scan_direction_flag': 'uint8',
+    'edge_of_flight_line': 'uint8',
+    'classification': 'uint8',
+    'synthetic': 'uint8',
+    'key_point': 'uint8',
+    'withheld': 'uint8',
+    'scan_angle_rank': 'int8',
+    'user_data': 'uint8',
+    'point_source_id': 'uint16',
+    'gps_time': 'float64',
+    'Amplitude': 'float64',
+    'Pulse_width': 'float64',
+    'Reflectance': 'float64',
+    'Deviation': 'int32',
+    'PredSemantic' : 'uint8',
+    'PredInstance' : 'uint16',
+    }
 
     # Standardize column names to match LAS format
     df.rename(columns={'x': 'X', 'y': 'Y', 'z': 'Z'}, inplace=True)
 
-    # Check required columns
-    required_columns = ['X', 'Y', 'Z']
-    for col in required_columns:
-        if col not in df.columns:
-            raise ValueError(f'Column {col} not found in {csv}')
-        
-    # Create a new .las file
-    las_header = laspy.LasHeader(point_format=3, version="1.2")
+    # Calculate scales and offsets for your point data
+    scale = [0.001, 0.001, 0.001]  # Example scale factors
+    offset = [df['X'].min(), df['Y'].min(), df['Z'].min()]  # Minimum values as offsets
 
+    # Create a new .las file with correct header information
+    las_header = laspy.LasHeader(point_format=7, version="1.4")
+    las_header.scale = scale
+    las_header.offset = offset
+
+    # Bounds
+    min_bounds = offset  # already calculated as minimums
+    max_bounds = [df['X'].max(), df['Y'].max(), df['Z'].max()]  # Maximum values
+    las_header.min = min_bounds
+    las_header.max = max_bounds
+
+    # check if the columns in the dataframe match the standard columns and make a list of the columns that match
     standard_columns = list(las_header.point_format.dimension_names)
+    columns_which_match = [column for column in standard_columns if column in df.columns]
 
-    # check which columns in the csv file are in the standard columns
-    csv_standard_columns = list(set(standard_columns) & set(df.columns))
+    # remove X, Y and Z from the list
+    columns_which_match.remove('X')
+    columns_which_match.remove('Y')
+    columns_which_match.remove('Z')
 
-    # add them to required columns if they are not already there
-    for col in csv_standard_columns:
-        if col not in required_columns:
-            required_columns.append(col)
+    # get extra columns as columns which don't match
+    extra_columns = [column for column in df.columns if column not in standard_columns]
 
-    # read all the colum names from the csv file
-    csv_columns = list(df.columns)
+    # add extra columns to the las file with the correct data types
+    for column in extra_columns:
+        las_header.add_extra_dim(laspy.ExtraBytesParams(name=column, type=data_types[column]))
 
-    if verbose:
-        print('csv_columns: {}'.format(csv_columns))
+    # create a new las file with the correct header information
+    las_file = laspy.LasData(las_header)
 
-    # get extra dimensions from target las file
-    gt_extra_dimensions = list(set(csv_columns) - set(required_columns))
+    # Assigning the scaled and offset data
+    las_file.X = (df['X'] - offset[0]) / scale[0]
+    las_file.Y = (df['Y'] - offset[1]) / scale[1]
+    las_file.Z = (df['Z'] - offset[2]) / scale[2]
 
-    # add extra dimensions to new las file
-    for item in gt_extra_dimensions:
-        las_header.add_extra_dim(laspy.ExtraBytesParams(name=item, type=np.int32))
+    # add standard columns to the las file with the correct data types
+    for column in columns_which_match:
+        las_file[column] = df[column].astype(data_types[column])
 
-    outfile = laspy.LasData(las_header)
-    
-    # Assign coordinates
-    for col in required_columns:
-        outfile[col] = df[col].values.astype(np.float32)
-
-    # Assign extra dimensions
-    for col in gt_extra_dimensions:
-        # if you are processing col=return_num limit the values to 0-7
-        if col == 'return_num':
-            outfile[col] = df[col].values % 8
-        else:
-            outfile[col] = df[col].values
+    # add extra columns to the las file with the correct data types
+    for column in extra_columns:
+        las_file[column] = df[column].astype(data_types[column])
 
     # Write the file
-    outfile.write(output_file_path, do_compress=False)
+    las_file.write(output_file_path, do_compress=False)
 
-# Test the function
-# CSV_FILE = '/home/nibio/mutable-outside-world/code/gitlab_fsct/instance_segmentation_classic/maciek/first_cc.csv'
-# NEW_LAS_FILE = '/home/nibio/mutable-outside-world/code/gitlab_fsct/instance_segmentation_classic/maciek/new_first.las'
 
-# pandas_to_las(CSV_FILE, NEW_LAS_FILE)
+
