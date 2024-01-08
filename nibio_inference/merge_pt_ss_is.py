@@ -72,8 +72,6 @@ class MergePtSsIs(object):
         # semantic_segmentation_df.to_csv(self.semantic_segmentation.replace('.ply', '.csv'))
         # instance_segmentation_df.to_csv(self.instance_segmentation.replace('.ply', '.csv'))
 
-        print('instance_segmentation_df.columns:', instance_segmentation_df.columns)
-
         # Rename columns for semantic and instance segmentations
         semantic_segmentation_df.columns = [f'{col}_semantic_segmentation' for col in semantic_segmentation_df.columns]
         instance_segmentation_df.columns = [f'{col}_instance_segmentation' for col in instance_segmentation_df.columns]
