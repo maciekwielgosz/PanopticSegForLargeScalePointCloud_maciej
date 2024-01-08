@@ -256,6 +256,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     wget \
     unzip \
+    zip \
     # ... (any other packages that are required at runtime) ...
     && rm -rf /var/lib/apt/lists/*
 
