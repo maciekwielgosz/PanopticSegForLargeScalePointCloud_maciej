@@ -44,7 +44,7 @@ def pandas_to_las(csv, csv_file_provided=False, output_file_path=None, do_compre
     'classification': 'uint8',
     'user_data': 'uint8',
     'scan_angle': 'uint16',  # Data type not specified in the provided formats
-    'scan_angle_rank': 'int8',
+    # 'scan_angle_rank': 'int8',
     'point_source_id': 'uint16',
     'gps_time': 'float64',
     'red': 'uint16',  # Data type not specified in the provided formats
@@ -78,6 +78,10 @@ def pandas_to_las(csv, csv_file_provided=False, output_file_path=None, do_compre
     max_bounds = [df['X'].max(), df['Y'].max(), df['Z'].max()]  # Maximum values
     las_header.min = min_bounds
     las_header.max = max_bounds
+
+    # if there is scan_angle_rank column map it to scan_angle
+    if 'scan_angle_rank' in df.columns:
+        df.rename(columns={'scan_angle_rank': 'scan_angle'}, inplace=True)
 
     # check if the columns in the dataframe match the standard columns and make a list of the columns that match
     standard_columns = list(las_header.point_format.dimension_names)
