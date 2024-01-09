@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set DEBUG_MODE (change this to true or false as needed)
-DEBUG_MODE=false
+DEBUG_MODE=true
 
 # Set the path (change this to the path taken from the config file)
 # if [ "$DEBUG_MODE" = true ]; then
@@ -62,11 +62,23 @@ run_oracle_wrapper_output() {
     # Create the output folder if it does not exist in the docker container
     mkdir -p "$bucket_location"
 
-    # Zip the output folder
-    zip -r "$ORACLE_OUT_DATA_FOLDER/final_results.zip" "$ORACLE_OUT_DATA_FOLDER/final_results"
+    # make a temporary folder to store the results
+    mkdir -p "$PATH_DATA/results"
 
-    # Copy the zipped folder to the output_location
-    cp "$ORACLE_OUT_DATA_FOLDER/final_results.zip" "$bucket_location"
+    # copy the results from the oracle output folder to the temporary folder
+    cp -r "$ORACLE_OUT_DATA_FOLDER/final_results/"* "$PATH_DATA/results"
+
+    # Find and zip only the files in the specified directory, excluding subfolders
+    find "$PATH_DATA/results" -maxdepth 1 -type f -exec zip "$PATH_DATA/results.zip" {} +
+
+    # copy the zipped results to the output location
+    cp "$PATH_DATA/results.zip" "$bucket_location"
+
+    # # Zip the output folder
+    # zip "$ORACLE_OUT_DATA_FOLDER/results.zip" "$ORACLE_OUT_DATA_FOLDER/final_results"/*
+
+    # # Copy the zipped folder to the output_location
+    # cp "$ORACLE_OUT_DATA_FOLDER/results.zip" "$bucket_location"
 }
 
 ### Main execution ###
@@ -74,8 +86,30 @@ run_oracle_wrapper_output() {
 # Run the input script
 run_oracle_wrapper_input
 
-# # Run the inference script
-bash run_inference.sh "$ORACLE_IN_DATA_FOLDER" "$ORACLE_OUT_DATA_FOLDER"
+# Create temporary folders if they do not exist
+mkdir -p "$TMP_IN_DATA_FOLDER"
+mkdir -p "$TMP_OUT_DATA_FOLDER"
+mkdir -p "$ORACLE_OUT_DATA_FOLDER/final_results"
 
-# # Run the output script
+# Get a list of files in ORACLE_IN_DATA_FOLDER
+files=($(find "$ORACLE_IN_DATA_FOLDER" -maxdepth 1 -type f))
+
+# Process files in chunks of 10
+for ((i=0; i<${#files[@]}; i+=10)); do
+    # Copy up to 10 files to TMP_IN_DATA_FOLDER
+    cp "${files[@]:i:10}" "$TMP_IN_DATA_FOLDER/"
+
+    # Run the inference script on these files
+    bash run_inference.sh "$TMP_IN_DATA_FOLDER" "$TMP_OUT_DATA_FOLDER"
+
+    # Copy results from TMP_OUT_DATA_FOLDER to ORACLE_OUT_DATA_FOLDER
+    cp -r "$TMP_OUT_DATA_FOLDER/final_results/"* "$ORACLE_OUT_DATA_FOLDER/final_results/"
+
+    # Clear TMP_IN_DATA_FOLDER for the next batch
+    rm -rf "$TMP_IN_DATA_FOLDER"/*
+done
+
+# Run the output script
 run_oracle_wrapper_output
+
+echo "Processing complete."
