@@ -2,6 +2,7 @@
 
 # Set DEBUG_MODE (change this to true or false as needed)
 DEBUG_MODE=true
+# DEBUG_MODE=false
 
 # Set the path (change this to the path taken from the config file)
 # if [ "$DEBUG_MODE" = true ]; then
@@ -43,6 +44,17 @@ run_oracle_wrapper_input() {
     # Copy files from bucket_location to the input folder
     shopt -s nullglob # Enable nullglob to handle empty directories
     cp -r "$bucket_location"/* "$ORACLE_IN_DATA_FOLDER"
+
+    #check if in ORACLE_IN_DATA_FOLDER there are .zip files
+    for file in "$ORACLE_IN_DATA_FOLDER"/*.zip; do
+        if [ -f "$file" ]; then
+            # Unzip the file
+            echo "Unzipping $file"
+            unzip "$file" -d "$ORACLE_IN_DATA_FOLDER"
+            # Remove the zip file
+            rm "$file"
+        fi
+    done
 }
 
 # function to write the output to the oracle
