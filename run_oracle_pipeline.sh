@@ -1,8 +1,9 @@
 #!/bin/bash
+set -e
 
 # Set DEBUG_MODE (change this to true or false as needed)
-DEBUG_MODE=true
-# DEBUG_MODE=false
+# DEBUG_MODE=true
+DEBUG_MODE=false
 
 # Set the path (change this to the path taken from the config file)
 # if [ "$DEBUG_MODE" = true ]; then

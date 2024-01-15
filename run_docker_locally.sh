@@ -12,12 +12,12 @@ else
 fi
 
 # Check if the image exists
-if [ $(docker image ls -q -f reference=$IMAGE_NAME) ]; then
-    echo "Removing existing image $IMAGE_NAME"
-    docker image rm $IMAGE_NAME
-else
-    echo "Image $IMAGE_NAME does not exist."
-fi
+# if [ $(docker image ls -q -f reference=$IMAGE_NAME) ]; then
+#     echo "Removing existing image $IMAGE_NAME"
+#     docker image rm $IMAGE_NAME
+# else
+#     echo "Image $IMAGE_NAME does not exist."
+# fi
 
 # ./build.sh
 docker build -t $IMAGE_NAME .

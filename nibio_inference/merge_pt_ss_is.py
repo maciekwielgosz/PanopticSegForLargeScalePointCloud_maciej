@@ -161,7 +161,7 @@ class MergePtSsIs(object):
             csv_file_provided=False,
             output_file_path=self.output_file_path,
             do_compress=True,
-            verbose='True'
+            verbose=self.verbose
             )
         
         # save the merged data frame to a file using jaklas as a .las file

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 export PYTHONPATH='/home/nibio/mutable-outside-world'
 
@@ -70,6 +71,23 @@ FINAL_DEST_DIR="$DEST_DIR/final_results"
 
 # Run merge script
 python3 /home/nibio/mutable-outside-world/nibio_inference/merge_pt_ss_is_in_folders.py -i "$DEST_DIR/utm2local" -s "$DEST_DIR" -o "$FINAL_DEST_DIR" -v
+
+# remove numbers in the beginning of the file names
+
+# Loop through all files in the specified folder
+for file in "$FINAL_DEST_DIR"/*; do
+    # Extract just the filename from the path
+    filename=$(basename "$file")
+
+    # Use parameter expansion to remove the initial number and underscore
+    new_name=$(echo "$filename" | sed 's/^[0-9]*_//')
+
+    # Construct the new file path
+    new_file_path="$FINAL_DEST_DIR/$new_name"
+
+    # Rename the file
+    mv -n "$file" "$new_file_path"
+done
 
 # Avoid using ls to count files. This way, you can handle filenames with newlines or other problematic characters.
 num_files=$(find "$FINAL_DEST_DIR" -maxdepth 1 -type f | wc -l)
