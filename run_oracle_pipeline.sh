@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Set DEBUG_MODE (change this to true or false as needed)
+# Set DEBUG_MODE (change this to true or false as needed, DEBUG is for local testing, false is for running on the oracle)
 # DEBUG_MODE=true
 DEBUG_MODE=false
 
@@ -105,7 +105,14 @@ mkdir -p "$TMP_OUT_DATA_FOLDER"
 mkdir -p "$ORACLE_OUT_DATA_FOLDER/final_results"
 
 # Get a list of files in ORACLE_IN_DATA_FOLDER
+# Save the current IFS
+OLD_IFS="$IFS"
+# Change IFS to handle only newline characters
+IFS=$'\n'
+
 files=($(find "$ORACLE_IN_DATA_FOLDER" -maxdepth 1 -type f))
+
+IFS="$OLD_IFS"
 
 # Process files in chunks of 10
 for ((i=0; i<${#files[@]}; i+=10)); do
