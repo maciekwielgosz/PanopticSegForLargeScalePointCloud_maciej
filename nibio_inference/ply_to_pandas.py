@@ -45,7 +45,14 @@ def ply_to_pandas(ply_file_path, csv_file_path=None):
     return points_df
 
 if __name__ == "__main__":
-    ply_path = "/home/nibio/mutable-outside-world/code/gitlab_fsct/instance_segmentation_classic/Binbin_data_paper/TUWIEN_test_test.ply"
-    csv_path = "/home/nibio/mutable-outside-world/code/gitlab_fsct/instance_segmentation_classic/Binbin_data_paper/TUWIEN_test_test.csv"
+    # ply_path = "/home/nibio/mutable-outside-world/code/gitlab_fsct/instance_segmentation_classic/Binbin_data_paper/TUWIEN_test_test.ply"
+    # csv_path = "/home/nibio/mutable-outside-world/code/gitlab_fsct/instance_segmentation_classic/Binbin_data_paper/TUWIEN_test_test.csv"
+    import argparse
+    parser = argparse.ArgumentParser(description='Convert a PLY file to a CSV file.')
+    parser.add_argument('ply_path', type=str, help='Path to the PLY file to be read.')
+    parser.add_argument('csv_path', type=str, help='Path to the CSV file to be saved.')
+    args = parser.parse_args()
+    ply_path = args.ply_path
+    csv_path = args.csv_path
 
     ply_to_pandas(ply_path, csv_path)
