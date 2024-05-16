@@ -10,7 +10,7 @@
 /small_data_for_test/
 # /processed_data_ready_for_training_sparse_1000_500_100_10/
 /outputs/from_gpu26/
-!/outputs/from_gpu26/mls_data_run-PointGroup-PAPER-20230922_083127
+# !/outputs/from_gpu26/mls_data_run-PointGroup-PAPER-20230922_083127
 /bucket_in_folder/
 /bucket_out_folder/
 /docker_in_folder/
@@ -23,4 +23,6 @@
 /outputs/from_gpu26/mls_data_run-PointGroup-PAPER-20230922_083127/eval/
 /processed_data_ready_for_training_sparse_1000_500_100_10/treeinsfused/processed_0.2_test/
 /temp_folder/
+/helios_for_instance/
+/Stefano/
 

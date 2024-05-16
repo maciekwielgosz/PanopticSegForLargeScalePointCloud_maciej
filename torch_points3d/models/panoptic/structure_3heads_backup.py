@@ -18,7 +18,6 @@ def non_max_suppression(ious, scores, threshold):
 
 class PanopticResults(NamedTuple):
     semantic_logits: torch.Tensor
-    bi_semantic_logits: torch.Tensor
     offset_logits: torch.Tensor
     embed_logits: torch.Tensor
     cluster_scores: torch.Tensor  # One float value per cluster
@@ -26,7 +25,7 @@ class PanopticResults(NamedTuple):
     clusters: List[torch.Tensor]  # Each item contains the list of indices in the cluster
     cluster_type: torch.Tensor  # Wether a cluster is coming from the votes or the original points. 0->original pos, 1->vote
 
-    def get_instances(self, nms_threshold=0.3, min_cluster_points=100, min_score=0.6) -> List:
+    def get_instances(self, nms_threshold=0.3, min_cluster_points=100, min_score=0.5) -> List:
         """ Returns index of clusters that pass nms test, min size test and score test
         """
         if not self.clusters:

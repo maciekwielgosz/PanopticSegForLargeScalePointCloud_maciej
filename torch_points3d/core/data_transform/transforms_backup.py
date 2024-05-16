@@ -23,9 +23,7 @@ from torch_points3d.utils.config import is_list
 from torch_points3d.utils import is_iterable
 from .grid_transform import group_data, GridSampling3D, shuffle_data, GridSampling3D_PCA
 from .features import Random3AxisRotation
-from torch_geometric.transforms.random_rotate import RandomRotate as randomrotate
-from torch_geometric.transforms.center import Center as augcenter 
-from torch_points3d.core.data_transform.features import XYZRelaFeature, XYZFeature, AddFeatsByKeys
+
 
 KDTREE_KEY = "kd_tree"
 
@@ -790,9 +788,8 @@ class RandomDropout:
 def apply_mask(data, mask, skip_keys=[]):
     size_pos = len(data.pos)
     for k in data.keys:
-        if k not in skip_keys:
-            if size_pos == len(data[k]) and k not in skip_keys:
-                data[k] = data[k][mask]
+        if size_pos == len(data[k]) and k not in skip_keys:
+            data[k] = data[k][mask]
     return data
 
 
@@ -883,11 +880,11 @@ class RandomSphereDropout(object):
         radius of the spheres
     """
 
-    def __init__(self, num_sphere: int = 10, radius: float = 5, grid_size_center: float = 0.01, skip_keys: List = [],):
+    def __init__(self, num_sphere: int = 10, radius: float = 5, grid_size_center: float = 0.01):
         self.num_sphere = num_sphere
         self.radius = radius
         self.grid_sampling = GridSampling3D(grid_size_center, mode="last")
-        self.skip_keys = skip_keys
+
     def __call__(self, data):
 
         data_c = self.grid_sampling(data.clone())
@@ -900,7 +897,7 @@ class RandomSphereDropout(object):
         ind = ind[dist[:, 0] >= 0]
         mask = torch.ones(len(pos), dtype=torch.bool)
         mask[ind[:, 0]] = False
-        data = apply_mask(data, mask, self.skip_keys)
+        data = apply_mask(data, mask)
 
         return data
 
@@ -1159,270 +1156,3 @@ class PeriodicSampling(object):
             self.__class__.__name__, self.pulse, self.thresh, self.box_multiplier, self.skip_keys
         )
 
-class Mix3D(object):
-    """ Mix3D
-        https://arxiv.org/abs/2110.02210
-    """
-
-    def __init__(self):
-        pass
-
-    def __call__(self, data, data2):
-
-        #basic date augmentation
-        aug_noise = RandomNoise(sigma=0.01)
-        data = aug_noise(data)
-        aug_rotate = randomrotate((-180, 180), axis=2)
-        data = aug_rotate(data)
-        aug_scale = RandomScaleAnisotropic([0.9, 1.1])
-        data = aug_scale(data)
-        aug_symmetry = RandomSymmetry([True,False,False])
-        data = aug_symmetry(data)
-        aug_addrelaxyz = XYZRelaFeature(add_x=True, add_y=True, add_z=True)
-        data = aug_addrelaxyz(data)
-        aug_addz = XYZFeature(add_x=False, add_y=False, add_z=True)
-        data = aug_addz(data)
-        aug_addfeatures = AddFeatsByKeys(list_add_to_x=[True, True, True, True], feat_names=['pos_x_rela', 'pos_y_rela', 'pos_z_rela', 'pos_z'], delete_feats=[True, True, True, True])
-        data = aug_addfeatures(data)
-        aug_center = augcenter()
-        data = aug_center(data)
-        aug_grid = GridSampling3D(size=0.2, quantize_coords=True, mode="last")
-        data = aug_grid(data)
-        aug_shift = ShiftVoxels()
-        data = aug_shift(data)
-    
-        data2 = aug_noise(data2)
-        data2 = aug_rotate(data2)
-        data2 = aug_scale(data2)
-        data2 = aug_symmetry(data2)
-        data2 = aug_addrelaxyz(data2)
-        data2 = aug_addz(data2)
-        data2 = aug_addfeatures(data2)
-        data2 = aug_center(data2)
-        data2 = aug_grid(data2)
-        data2 = aug_shift(data2)
-        
-        # 3D mix
-        un = torch.max(data['instance_labels']).item()
-        data2['instance_labels'] = data2['instance_labels'] + un
-        for key in data.keys:
-            if key == 'grid_size':
-                continue
-            data[key] = torch.cat((data[key], data2[key]), 0)
-            
-        return data
-
-    def __repr__(self):
-        return "Mix3D"
-
-def generate_true_false_vector(length, true_percentage):
-    vector = []
-    for _ in range(length):
-        if random.randrange(100) < true_percentage:
-            vector.append(True)
-        else:
-            vector.append(False)
-    return vector
-
-def isin_tensor(input, values):
-    mask = torch.zeros_like(input, dtype=torch.bool)
-    for value in values:
-        mask |= torch.eq(input, value)
-    return mask
-
-class Tree3DMix(object):
-    """ 
-    Tree3DMix
-    """
-
-    def __init__(self):
-        pass
-
-    def __call__(self, data, data2, stuff_classes):
-
-        #basic date augmentation
-        aug_noise = RandomNoise(sigma=0.01)
-        aug_rotate = randomrotate((-180, 180), axis=2)
-        aug_scale = RandomScaleAnisotropic([0.9, 1.1])
-        aug_symmetry = RandomSymmetry([True,False,False])
-        aug_center = augcenter()
-        
-        #replaced by tree instances from input data2
-        idx_stuff = isin_tensor(data['y'], stuff_classes)
-        idx_things = ~idx_stuff
-        un1 = torch.unique(data['instance_labels'][idx_things])
-        replace_v = generate_true_false_vector(un1.shape[0], 70)  #randomly choose 70% tree instances to be replaced
-        idx_stuff2 = isin_tensor(data2['y'], stuff_classes)
-        idx_things2 = ~idx_stuff2
-        data2['instance_labels'] = data2['instance_labels']+un1.max()
-        un2 = torch.unique(data2['instance_labels'][idx_things2])
-        max_instance_id = torch.max(un2)
-        datacopyori = data.to_dict()
-        datatreemix = Data.from_dict(datacopyori)
-        for i, insId in enumerate(un1):
-            if replace_v[i]==True:  #local augmentations for the insert tree instance
-                idx = datatreemix['instance_labels']!=insId
-                tree_replaced_id = datatreemix['instance_labels']==insId
-                datacopy = datatreemix.to_dict()
-                data1remain = Data.from_dict(datacopy)
-                for key in datatreemix.keys:
-                    if key == 'grid_size' or key == 'forest_name':
-                        continue
-                    data1remain[key] = datatreemix[key][idx]
-                tree_replaced = Data.from_dict(datacopy)
-                for key in datatreemix.keys:
-                    if key == 'grid_size' or key == 'forest_name':
-                        continue
-                    tree_replaced[key] = datatreemix[key][tree_replaced_id]
-                tree_replace_id = random.randrange(un2.shape[0])
-                idx2 = data2['instance_labels']==un2[tree_replace_id]
-                datacopy2 = data2.to_dict()
-                dataInsert = Data.from_dict(datacopy2)
-                for key in data2.keys:
-                    if key == 'grid_size' or key == 'forest_name':
-                        continue
-                    dataInsert[key] = data2[key][idx2]
-                dataInsert = aug_center(dataInsert)
-                dataInsert = aug_noise(dataInsert)
-                dataInsert = aug_rotate(dataInsert)
-                dataInsert = aug_scale(dataInsert)
-                dataInsert = aug_symmetry(dataInsert)
-                dataInsert['pos'][:,0:2] = dataInsert['pos'][:,0:2] - (dataInsert['pos'][:,0:2].mean(axis=0)-tree_replaced['pos'][:,0:2].mean(axis=0))
-                if torch.min(tree_replaced['pos'][:,2], 0).values<torch.max(data['pos'][idx_stuff][:,2], 0).values:
-                    dataInsert['pos'][:,2] = dataInsert['pos'][:,2] - (torch.min(dataInsert['pos'][:,2], 0).values-torch.min(tree_replaced['pos'][:,2], 0).values)
-                else:
-                    dataInsert['pos'][:,2] = dataInsert['pos'][:,2] - (torch.min(dataInsert['pos'][:,2], 0).values-torch.max(data['pos'][idx_stuff][:,2], 0).values)
-                #dataInsert['y'] = dataInsert['y'] - tree_replaced['y'].mean()
-                #dataInsert['z'] = dataInsert['z'] - tree_replaced['z'].mean()
-                #dataMix = torch.cat((data1remain, dataInsert), 0)
-                if dataInsert['instance_labels'][0] in datatreemix['instance_labels']:
-                    dataInsert['instance_labels'] = torch.full(dataInsert['instance_labels'].shape, max_instance_id+1) 
-                    max_instance_id = max_instance_id+1
-                datacopy = data1remain.to_dict()
-                datatreemix = Data.from_dict(datacopy)
-                for key in data1remain.keys:
-                    if key == 'grid_size' or key == 'forest_name':
-                        continue
-                    datatreemix[key] = torch.cat((data1remain[key], dataInsert[key]), 0)
-        datatreemix['forest_name2'] = data2['forest_name']
-        _, datatreemix['instance_labels'] = torch.unique(datatreemix['instance_labels'],return_inverse=True)
-        
-        # 3D mix
-        #un = torch.max(data['instance_labels']).item()
-        #data2['instance_labels'] = data2['instance_labels'] + un
-        #for key in data.keys:
-        #    if key == 'grid_size':
-        #        continue
-        #    data[key] = torch.cat((data[key], data2[key]), 0)
-            
-        return datatreemix
-
-    def __repr__(self):
-        return "Tree3DMix"
-from pykdtree.kdtree import KDTree as KDTree2
-def calculate_overlap(point_cloud1, point_cloud2, threshold):
-    """
-    Calculate the spatial overlap between two point clouds using KD-trees with tensors.
-    
-    Args:
-        point_cloud1 (torch.Tensor): First point cloud, shape (N, 3).
-        point_cloud2_tree (torch.Tensor): kdtree of the second point cloud, shape (M, 3).
-        threshold (float): Maximum distance for a point to be considered overlapping.
-        
-    Returns:
-        float: Overlap ratio between the two point clouds.
-    """
-    
-    tree = KDTree2(point_cloud2.detach().numpy())
-    distances, _ = tree.query(point_cloud1.detach().numpy(), k=1, distance_upper_bound=threshold)
-    valid_distances = distances != float('inf')
-    num_overlap = torch.sum(torch.from_numpy(valid_distances))
-    overlap_ratio = num_overlap / len(point_cloud1)
-    return overlap_ratio
-
-class Tree3DMix2(object):
-    """ 
-    Tree3DMix2 prevent tree instances overlap
-    """
-
-    def __init__(self):
-        pass
-
-    def __call__(self, data, data2, stuff_classes):
-
-        #basic date augmentation
-        aug_noise = RandomNoise(sigma=0.01)
-        aug_rotate = randomrotate((-180, 180), axis=2)
-        aug_scale = RandomScaleAnisotropic([0.9, 1.1])
-        aug_symmetry = RandomSymmetry([True,False,False])
-        aug_center = augcenter()
-        
-        #replaced by tree instances from input data2
-        idx_stuff = isin_tensor(data['y'], stuff_classes)
-        idx_things = ~idx_stuff
-        un1 = torch.unique(data['instance_labels'][idx_things])
-        replace_v = generate_true_false_vector(un1.shape[0], 70)  #randomly choose 30% tree instances to be replaced
-        idx_stuff2 = isin_tensor(data2['y'], stuff_classes)
-        idx_things2 = ~idx_stuff2
-        data2['instance_labels'] = data2['instance_labels']+un1.max()
-        un2 = torch.unique(data2['instance_labels'][idx_things2])
-        max_instance_id = torch.max(un2)
-        datacopyori = data.to_dict()
-        datatreemix = Data.from_dict(datacopyori)
-        for i, insId in enumerate(un1):
-            if replace_v[i]==True:  #local augmentations for the insert tree instance
-                idx = datatreemix['instance_labels']!=insId
-                tree_replaced_id = datatreemix['instance_labels']==insId
-                datacopy = datatreemix.to_dict()
-                data1remain = Data.from_dict(datacopy)
-                for key in datatreemix.keys:
-                    if key == 'grid_size' or key == 'forest_name':
-                        continue
-                    data1remain[key] = datatreemix[key][idx]
-                tree_replaced = Data.from_dict(datacopy)
-                for key in datatreemix.keys:
-                    if key == 'grid_size' or key == 'forest_name':
-                        continue
-                    tree_replaced[key] = datatreemix[key][tree_replaced_id]
-                tree_replace_id = random.randrange(un2.shape[0])
-                idx2 = data2['instance_labels']==un2[tree_replace_id]
-                datacopy2 = data2.to_dict()
-                dataInsert = Data.from_dict(datacopy2)
-                for key in data2.keys:
-                    if key == 'grid_size' or key == 'forest_name':
-                        continue
-                    dataInsert[key] = data2[key][idx2]
-                dataInsert = aug_center(dataInsert)
-                dataInsert = aug_noise(dataInsert)
-                dataInsert = aug_rotate(dataInsert)
-                dataInsert = aug_scale(dataInsert)
-                dataInsert = aug_symmetry(dataInsert)
-                dataInsert['pos'][:,0:2] = dataInsert['pos'][:,0:2] - (dataInsert['pos'][:,0:2].mean(axis=0)-tree_replaced['pos'][:,0:2].mean(axis=0))
-                if torch.min(tree_replaced['pos'][:,2], 0).values<torch.max(data['pos'][idx_stuff][:,2], 0).values:
-                    dataInsert['pos'][:,2] = dataInsert['pos'][:,2] - (torch.min(dataInsert['pos'][:,2], 0).values-torch.min(tree_replaced['pos'][:,2], 0).values)
-                else:
-                    dataInsert['pos'][:,2] = dataInsert['pos'][:,2] - (torch.min(dataInsert['pos'][:,2], 0).values-torch.max(data['pos'][idx_stuff][:,2], 0).values)
-                #dataInsert['y'] = dataInsert['y'] - tree_replaced['y'].mean()
-                #dataInsert['z'] = dataInsert['z'] - tree_replaced['z'].mean()
-                #dataMix = torch.cat((data1remain, dataInsert), 0)
-                if dataInsert['instance_labels'][0] in datatreemix['instance_labels']:
-                    dataInsert['instance_labels'] = torch.full(dataInsert['instance_labels'].shape, max_instance_id+1) 
-                    max_instance_id = max_instance_id+1
-                datacopy = data1remain.to_dict()
-                datatreemix = Data.from_dict(datacopy)
-                #check the overlap of the new insert tree:
-                overlap_ratio = calculate_overlap(dataInsert['pos'], data1remain['pos'], 0.3)
-                if overlap_ratio<0.1:
-                    for key in data1remain.keys:
-                        if key == 'grid_size' or key == 'forest_name':
-                            continue
-                        datatreemix[key] = torch.cat((data1remain[key], dataInsert[key]), 0)
-                else:
-                    datatreemix = data1remain
-        datatreemix['forest_name2'] = data2['forest_name']
-        _, datatreemix['instance_labels'] = torch.unique(datatreemix['instance_labels'],return_inverse=True)
-            
-        return datatreemix
-
-    def __repr__(self):
-        return "Tree3DMix"

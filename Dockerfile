@@ -266,7 +266,8 @@ RUN python3.8 -m pip install --no-cache-dir \
     numba==0.57.1 \
     numpy==1.24.4 \
     jaklas \
-    dask==2021.8.1
+    dask==2021.8.1 \
+    pykdtree==1.3.7.post0
 
 # make sure that datascience folder exists (to be used in the oracle)
 RUN mkdir -p /home/datascience

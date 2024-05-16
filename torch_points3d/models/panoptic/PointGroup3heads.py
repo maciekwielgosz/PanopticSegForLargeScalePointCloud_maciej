@@ -16,7 +16,8 @@ from .structure_3heads import PanopticLabels, PanopticResults
 from torch_points3d.utils import hdbscan_cluster, meanshift_cluster
 from torch_points3d.utils import is_list
 from torch_points3d.utils import hdbscan_cluster
-
+from os.path import exists, join
+from .ply import read_ply, write_ply
 
 class PointGroup3heads(BaseModel):
     __REQUIRED_DATA__ = [
@@ -77,13 +78,31 @@ class PointGroup3heads(BaseModel):
             Seq()
             .append(MLP([self.Backbone.output_nc, self.Backbone.output_nc], bias=False))
             .append(torch.nn.Linear(self.Backbone.output_nc, dataset.num_classes))
+        )
+        self.LogSoftLay = (
+            Seq()
             .append(torch.nn.LogSoftmax(dim=-1))
         )
         self.loss_names = ["loss", "offset_norm_loss", "offset_dir_loss",  "ins_loss", "ins_var_loss", "ins_dist_loss", "ins_reg_loss","semantic_loss", "score_loss", "mask_loss"]
+        self.use_binary_loss = option.get("use_binary_loss", False)
+        if self.use_binary_loss:
+            self.BiSemantic = (
+                Seq()
+                .append(torch.nn.Linear(dataset.num_classes, 2))
+                .append(torch.nn.LogSoftmax(dim=-1))
+            )
+            self.loss_names = ["loss", "offset_norm_loss", "offset_dir_loss",  "ins_loss", "ins_var_loss", "ins_dist_loss", "ins_reg_loss","semantic_loss", "score_loss", "mask_loss", "semantic_loss_bi"]
+        
         stuff_classes = dataset.stuff_classes
         if is_list(stuff_classes):
             stuff_classes = torch.Tensor(stuff_classes).long()
+        thing_classes = dataset.thing_classes
+        if is_list(thing_classes):
+            thing_classes = torch.Tensor(thing_classes).long()
         self._stuff_classes = torch.cat([torch.tensor([IGNORE_LABEL]), stuff_classes])
+        self._thing_classes = thing_classes
+        
+        self._weight_per_point = option.get("weight_per_point", None)
 
     def get_opt_mergeTh(self):
         """returns configuration"""
@@ -104,6 +123,10 @@ class PointGroup3heads(BaseModel):
 
         # Semantic, offset and embedding heads
         semantic_logits = self.Semantic(backbone_features) # [N, 9]
+        semantic_logits = self.LogSoftLay(semantic_logits)
+        bi_semantic_logits = None
+        if self.use_binary_loss:
+            bi_semantic_logits = self.BiSemantic(semantic_logits)
         offset_logits = self.Offset(backbone_features) # [N, 3]
         embed_logits = self.Embed(backbone_features) # [N, 5]
 
@@ -126,6 +149,8 @@ class PointGroup3heads(BaseModel):
                     all_clusters, cluster_type = self._cluster5(semantic_logits, offset_logits, embed_logits)
                 elif self.opt.cluster_type == 6:
                     all_clusters, cluster_type = self._cluster6(semantic_logits, offset_logits, embed_logits)
+                elif self.opt.cluster_type == 7: #set1_classes5/set2/set3
+                    all_clusters, cluster_type = self._cluster7(semantic_logits, offset_logits, embed_logits)
                 if len(all_clusters):
                     cluster_scores, mask_scores = self._compute_score(epoch, all_clusters, backbone_features, semantic_logits)
                     #cluster_scores, mask_scores = self._compute_score_batch(epoch, all_clusters, cluster_type, backbone_features, semantic_logits)
@@ -145,9 +170,12 @@ class PointGroup3heads(BaseModel):
                         all_clusters, cluster_type = self._cluster5(semantic_logits, offset_logits, embed_logits)
                     elif self.opt.cluster_type == 6:
                         all_clusters, cluster_type = self._cluster6(semantic_logits, offset_logits, embed_logits)
+                    elif self.opt.cluster_type == 7:
+                        all_clusters, cluster_type = self._cluster7(semantic_logits, offset_logits, embed_logits)
                 
         self.output = PanopticResults(
             semantic_logits=semantic_logits,
+            bi_semantic_logits=bi_semantic_logits,
             offset_logits=offset_logits,
             embed_logits=embed_logits,
             clusters=all_clusters,
@@ -158,7 +186,7 @@ class PointGroup3heads(BaseModel):
 
         # Sets visual data for debugging
         #with torch.no_grad():
-            #self._dump_visuals(epoch)
+        #    self._dump_visuals(epoch)
 
     def _cluster(self, semantic_logits, offset_logits):
         """ Compute clusters from positions and votes """
@@ -390,6 +418,58 @@ class PointGroup3heads(BaseModel):
 
         return all_clusters, cluster_type
 
+
+    def _cluster7(self, semantic_logits, offset_logits, embed_logits):
+        """ Compute clusters from positions and votes """
+        ###### Cluster using original position with predicted semantic labels ######
+        predicted_labels = torch.max(semantic_logits, 1)[1] # [N]
+        predicted_labels_copy = predicted_labels.detach().clone()
+        #map the predicted semantic labels to the same label : trees
+        min_thing_label = torch.min(self._thing_classes)
+        for i in self._thing_classes:
+            predicted_labels[predicted_labels_copy==i] = min_thing_label.to(self.device)
+        clusters_pos = []
+        clusters_pos = region_grow(
+            self.raw_pos + offset_logits,
+            predicted_labels,
+            self.input.batch.to(self.device),
+            ignore_labels=self._stuff_classes.to(self.device),
+            radius=self.opt.cluster_radius_search,
+            nsample=200,
+            min_cluster_size=10
+        )
+        ###### Cluster using embedding without predicted semantic labels ######
+        #remove stuff points
+        N = embed_logits.shape[0]  #.cpu().detach().numpy().shape[0]
+        ind = torch.arange(0, N)
+        unique_predicted_labels = torch.unique(predicted_labels) #np.unique(predicted_labels)
+        ignore_labels=self._stuff_classes.to(self.device)  #.cpu().detach().numpy()
+        label_mask = torch.ones(predicted_labels.shape[0], dtype=torch.bool) #.cpu().detach().numpy()
+        for l in unique_predicted_labels:
+            if l in ignore_labels:
+                # Build clusters for a given label (ignore other points)
+                label_mask_l = predicted_labels == l
+                label_mask[label_mask_l] = False
+        local_ind = ind[label_mask]
+        label_batch = self.input.batch[label_mask]  #.cpu().detach().numpy()
+        unique_in_batch = torch.unique(label_batch)
+        
+        #Clustering based on embeddings
+        embeds_u = embed_logits[label_mask]  #.cpu().detach().numpy()
+        clusters_embed, cluster_type_embeds = meanshift_cluster.cluster_single(embeds_u, unique_in_batch, label_batch, local_ind, 1, self.opt.bandwidth)
+
+
+        ###### Combine the two groups of clusters ######
+        all_clusters = []
+        cluster_type = []
+        all_clusters = all_clusters + clusters_pos
+        all_clusters = all_clusters + clusters_embed
+        cluster_type = cluster_type + list(np.zeros(len(clusters_pos), dtype=np.uint8))
+        cluster_type = cluster_type + cluster_type_embeds
+        all_clusters = [c.clone().detach().to(self.device) for c in all_clusters]
+        cluster_type = torch.tensor(cluster_type).to(self.device)
+        return all_clusters, cluster_type
+    
     def _compute_score(self, epoch, all_clusters, backbone_features, semantic_logits):
         """ Score the clusters """
         mask_scores = None
@@ -551,11 +631,40 @@ class PointGroup3heads(BaseModel):
     
     def _compute_loss(self, epoch):
         # Semantic loss
-        self.semantic_loss = torch.nn.functional.nll_loss(
-            self.output.semantic_logits, (self.labels.y).to(torch.int64), ignore_index=IGNORE_LABEL
-        )
+        attr = getattr(self, 'weight_classes', None)
+        if self._weight_per_point != None:
+            if self._weight_per_point == 'height':
+                # add weights for each point
+                above_height = self.raw_pos[:,-1]-self.raw_pos[:,-1].min()
+                sample_weight = above_height/(above_height.mean()+np.finfo(np.float64).eps)
+                sample_weight = torch.exp(-sample_weight)
+                #sample_weight = torch.empty((self.labels.y).to(torch.int64).size()).fill_(0.1)
+                self.semantic_loss = torch.nn.functional.nll_loss(
+                        self.output.semantic_logits, (self.labels.y).to(torch.int64), ignore_index=IGNORE_LABEL, reduction='none'
+                    )
+                self.semantic_loss = self.semantic_loss * sample_weight
+                self.semantic_loss = self.semantic_loss.mean()
+        elif attr is not None:
+            self.semantic_loss = torch.nn.functional.nll_loss(
+                self.output.semantic_logits, (self.labels.y).to(torch.int64), weight=self.weight_classes, ignore_index=IGNORE_LABEL
+            )
+        else:
+            self.semantic_loss = torch.nn.functional.nll_loss(
+                self.output.semantic_logits, (self.labels.y).to(torch.int64), ignore_index=IGNORE_LABEL
+            )
+        
         self.loss = self.opt.loss_weights.semantic * self.semantic_loss
-
+            
+        if self.use_binary_loss:
+            bi_y = self.labels.y.detach().clone()
+            bi_y[(bi_y[..., None] == self._stuff_classes[1:].to(self.device)).any(-1)] = 0 
+            bi_y[(bi_y[..., None] == self._thing_classes.to(self.device)).any(-1)] = 1 
+            #self.output.bi_semantic_logits = 0
+            self.semantic_loss_bi = torch.nn.functional.nll_loss(
+                    self.output.bi_semantic_logits, (bi_y).to(torch.int64), ignore_index=IGNORE_LABEL
+                )
+            self.loss += self.opt.loss_weights.semantic * self.semantic_loss_bi
+        
         # Offset loss
         self.input.instance_mask = self.input.instance_mask.to(self.device)
         self.input.vote_label = self.input.vote_label.to(self.device)
@@ -639,11 +748,11 @@ class PointGroup3heads(BaseModel):
         self.loss.backward()
 
     def _dump_visuals(self, epoch):
-        if random.random() < self.opt.vizual_ratio:
+        if random.random(): # < self.opt.vizual_ratio:
             if not hasattr(self, "visual_count"):
                 self.visual_count = 0
             data_visual = Data(
-                pos=self.raw_pos, y=self.input.y, instance_labels=self.input.instance_labels, batch=self.input.batch
+                pos=self.raw_pos, y=self.input.y, instance_labels=self.input.instance_labels, batch=self.input.batch, vote_label=self.labels.vote_label
             )
             data_visual.semantic_pred = torch.max(self.output.semantic_logits, -1)[1]
             data_visual.vote = self.output.offset_logits
@@ -653,5 +762,22 @@ class PointGroup3heads(BaseModel):
                 data_visual.cluster_type = self.output.cluster_type[nms_idx]
             if not os.path.exists("viz"):
                 os.mkdir("viz")
-            torch.save(data_visual.to("cpu"), "viz/data_e%i_%i.pt" % (epoch, self.visual_count))
+            if not os.path.exists("viz/epoch_%i" % (epoch)):
+                os.mkdir("viz/epoch_%i" % (epoch))
+            #torch.save(data_visual.to("cpu"), "viz/data_e%i_%i.pt" % (epoch, self.visual_count))
+            batch_size = torch.unique(data_visual.batch)
+            for s in batch_size:
+                print(s)
+                batch_mask = data_visual.batch == s
+                example_name='example_{:d}'.format(self.visual_count)
+                val_name = join("viz", "epoch_"+str(epoch), example_name)
+                write_ply(val_name,
+                            [data_visual.pos[batch_mask].detach().cpu().numpy(), 
+                            data_visual.y[batch_mask].detach().cpu().numpy().astype('int32'),
+                            data_visual.instance_labels[batch_mask].detach().cpu().numpy().astype('int32'),
+                            data_visual.vote_label[batch_mask].detach().cpu().numpy(),
+                            data_visual.pos[batch_mask].detach().cpu().numpy()+data_visual.vote_label[batch_mask].detach().cpu().numpy()
+                            ],
+                            ['x', 'y', 'z', 'sem_label', 'ins_label','offset_x', 'offset_y', 'offset_z', 'center_x', 'center_y', 'center_z'])
+                
             self.visual_count += 1

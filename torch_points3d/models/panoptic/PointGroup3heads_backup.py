@@ -127,8 +127,8 @@ class PointGroup3heads(BaseModel):
                 elif self.opt.cluster_type == 6:
                     all_clusters, cluster_type = self._cluster6(semantic_logits, offset_logits, embed_logits)
                 if len(all_clusters):
-                    #cluster_scores, mask_scores = self._compute_score(epoch, all_clusters, backbone_features, semantic_logits)
-                    cluster_scores, mask_scores = self._compute_score_batch(epoch, all_clusters, cluster_type, backbone_features, semantic_logits)
+                    cluster_scores, mask_scores = self._compute_score(epoch, all_clusters, backbone_features, semantic_logits)
+                    #cluster_scores, mask_scores = self._compute_score_batch(epoch, all_clusters, cluster_type, backbone_features, semantic_logits)
                     #cluster_scores, mask_scores = self._compute_real_score(epoch, all_clusters, cluster_type, backbone_features, semantic_logits)
         else:
             with torch.no_grad():
@@ -145,7 +145,7 @@ class PointGroup3heads(BaseModel):
                         all_clusters, cluster_type = self._cluster5(semantic_logits, offset_logits, embed_logits)
                     elif self.opt.cluster_type == 6:
                         all_clusters, cluster_type = self._cluster6(semantic_logits, offset_logits, embed_logits)
-                    
+                
         self.output = PanopticResults(
             semantic_logits=semantic_logits,
             offset_logits=offset_logits,
@@ -232,7 +232,7 @@ class PointGroup3heads(BaseModel):
         embeds_u = embed_logits[label_mask]  #.cpu().detach().numpy()
         
         #clusters_embed, cluster_type_embeds = hdbscan_cluster.cluster_single(embeds_u, unique_in_batch, label_batch, local_ind, 0)
-        clusters_embed, cluster_type_embeds = meanshift_cluster.cluster_single(embeds_u, unique_in_batch, label_batch, local_ind, 0)
+        clusters_embed, cluster_type_embeds = meanshift_cluster.cluster_single(embeds_u, unique_in_batch, label_batch, local_ind, 0, self.opt.bandwidth)
 
         ###### Combine the two groups of clusters ######
         all_clusters = clusters_embed
@@ -273,7 +273,7 @@ class PointGroup3heads(BaseModel):
         
         #Clustering based on embeddings
         embeds_u = embed_logits[label_mask]  #.cpu().detach().numpy()
-        clusters_embed, cluster_type_embeds = meanshift_cluster.cluster_single(embeds_u, unique_in_batch, label_batch, local_ind, 1)
+        clusters_embed, cluster_type_embeds = meanshift_cluster.cluster_single(embeds_u, unique_in_batch, label_batch, local_ind, 1, self.opt.bandwidth)
 
 
         ###### Combine the two groups of clusters ######
@@ -320,7 +320,7 @@ class PointGroup3heads(BaseModel):
         
         #Clustering based on embeddings
         embeds_u = embed_logits[label_mask]  #.cpu().detach().numpy()
-        clusters_embed, cluster_type_embeds = meanshift_cluster.cluster_single(embeds_u, unique_in_batch, label_batch, local_ind, 1)
+        clusters_embed, cluster_type_embeds = meanshift_cluster.cluster_single(embeds_u, unique_in_batch, label_batch, local_ind, 1, self.opt.bandwidth)
 
 
         ###### Combine the two groups of clusters ######
@@ -373,7 +373,7 @@ class PointGroup3heads(BaseModel):
         
         #Clustering based on embeddings
         embeds_u = embed_logits[label_mask]  #.cpu().detach().numpy()
-        clusters_embed, cluster_type_embeds = meanshift_cluster.cluster_single(embeds_u, unique_in_batch, label_batch, local_ind, 2)
+        clusters_embed, cluster_type_embeds = meanshift_cluster.cluster_single(embeds_u, unique_in_batch, label_batch, local_ind, 2, self.opt.bandwidth)
 
 
         ###### Combine the two groups of clusters ######

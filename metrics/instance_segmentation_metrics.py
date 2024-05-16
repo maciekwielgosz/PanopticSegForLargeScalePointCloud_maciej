@@ -10,7 +10,9 @@ logging.basicConfig(level=logging.INFO)
 
 class InstanceSegmentationMetrics:
     GT_LABEL_NAME = 'treeID'  #GT_LABEL_NAME = 'StemID', 'treeID'
-    TARGET_LABEL_NAME = 'preds_instance_segmentation' # 'instance_nr'
+    # TARGET_LABEL_NAME = 'preds_instance_segmentation' # 'instance_nr'
+    TARGET_LABEL_NAME = 'PredInstance' # 'instance_nr'
+
     def __init__(
         self, 
         input_file_path, 
