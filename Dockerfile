@@ -50,7 +50,12 @@ RUN python3.8 -m pip install --no-cache-dir --upgrade \
 
 ENV CU_VERSION=cu111
 # 8.0 for BM.GPU4.8, 7.0 for local, 6.0 for P100-SXM2 (Oracle)
-ENV TORCH_CUDA_ARCH_LIST_VER="6.0+PTX" 
+# ENV TORCH_CUDA_ARCH_LIST_VER="6.0+PTX"
+
+# optimized for the Tesla A10's architecture below
+# ENV TORCH_CUDA_ARCH_LIST_VER="8.6+PTX" 
+ENV TORCH_CUDA_ARCH_LIST_VER="6.0;7.0;7.5;8.0;8.6"
+
 
 RUN python3.8 -m pip install --no-cache-dir \
     torch==1.9.0+${CU_VERSION} \
@@ -214,6 +219,14 @@ RUN TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST_VER} FORCE_CUDA=1 python3.8 -m p
     widgetsnbextension==3.5.1 \
     zipp==3.5.0 
     # hdbscan==0.8.29
+
+
+# Install pip and Cython
+RUN python3.8 -m pip install --upgrade pip && \
+    python3.8 -m pip install Cython
+
+RUN python3.8 -m pip install scipy==1.8.0
+
 
 
 # Download, unzip, and install hdbscan

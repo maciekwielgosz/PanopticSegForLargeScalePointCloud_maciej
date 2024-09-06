@@ -52,13 +52,27 @@ class FinalUtmIntegration(object):
         if self.verbose:
             print('Merging point cloud, semantic segmentation and instance segmentation.')
 
-       # Read and preprocess data
         def preprocess_data(file_path):
             df = ply_to_pandas(file_path)
+            
+            # Rename columns
             df.rename(columns={'X': 'x', 'Y': 'y', 'Z': 'z'}, inplace=True)
-            df.sort_values(by=['x', 'y', 'z'], inplace=True)
-            df['xyz_index'] = df['x'].astype(str) + "_" + df['y'].astype(str) + "_" + df['z'].astype(str)
-            df.set_index('xyz_index', inplace=True)
+            
+            # Convert to Dask DataFrame for parallel processing
+            ddf = dd.from_pandas(df, npartitions=48)
+            
+            # Sort by each column sequentially
+            ddf = ddf.sort_values(by='z')
+            ddf = ddf.sort_values(by='y')
+            ddf = ddf.sort_values(by='x')
+            
+            # Create 'xyz_index' and set it as the index
+            ddf['xyz_index'] = ddf['x'].astype(str) + "_" + ddf['y'].astype(str) + "_" + ddf['z'].astype(str)
+            ddf = ddf.set_index('xyz_index')
+            
+            # Convert back to Pandas DataFrame
+            df = ddf.compute()
+            
             return df
 
         if self.verbose:
@@ -86,9 +100,7 @@ class FinalUtmIntegration(object):
 
         # Convert back to pandas DataFrame
         merged_df = merged_dd.compute()
-
-      
-
+            
         # remove the following columns from the merged data frame : x_semantic_segmentation, y_semantic_segmentation, z_semantic_segmentation
         merged_df.drop(columns=['x_semantic_segmentation', 'y_semantic_segmentation', 'z_semantic_segmentation'], inplace=True)
 
@@ -116,7 +128,7 @@ class FinalUtmIntegration(object):
 
         # add 1 to PredInstance column
         merged_df['PredInstance'] = merged_df['PredInstance'] + 1
-
+        
         return merged_df
     
     def save(self, merged_df):

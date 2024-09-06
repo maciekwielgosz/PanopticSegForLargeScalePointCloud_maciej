@@ -56,21 +56,29 @@ python3 nibio_inference/modify_eval.py "$DEST_DIR/eval.yaml" "$DEST_DIR/utm2loca
 # clear cache
 python3 nibio_inference/clear_cache.py --eval_yaml "$DEST_DIR/eval.yaml"
 
-# Run the inference script with the config file
-python3 eval.py --config-name "$DEST_DIR/eval.yaml"
+# # Run the inference script with the config file
+# python3 eval.py --config-name "$DEST_DIR/eval.yaml"
+
+# Binbin tiling
+bash large_PC_predict.sh "$DEST_DIR"
 
 echo "Done with inference using the config file: $DEST_DIR/eval.yaml"
 
-# Rename the output files result_0.ply , result_1.ply, ... to the original file names but with the prefix "inference_"
-python3 /home/nibio/mutable-outside-world/nibio_inference/rename_result_files_instance.py "$DEST_DIR/eval.yaml" "$DEST_DIR"
+# # Rename the output files result_0.ply , result_1.ply, ... to the original file names but with the prefix "inference_"
+# python3 /home/nibio/mutable-outside-world/nibio_inference/rename_result_files_instance.py "$DEST_DIR/eval.yaml" "$DEST_DIR"
 
-# Rename segmentation files
-python3 /home/nibio/mutable-outside-world/nibio_inference/rename_result_files_segmentation.py "$DEST_DIR/eval.yaml" "$DEST_DIR"
+# # Rename segmentation files
+# python3 /home/nibio/mutable-outside-world/nibio_inference/rename_result_files_segmentation.py "$DEST_DIR/eval.yaml" "$DEST_DIR"
 
 FINAL_DEST_DIR="$DEST_DIR/final_results"
 
-# Run merge script
-python3 /home/nibio/mutable-outside-world/nibio_inference/merge_pt_ss_is_in_folders.py -i "$DEST_DIR/utm2local" -s "$DEST_DIR" -o "$FINAL_DEST_DIR" -v
+# # Run merge script
+# python3 /home/nibio/mutable-outside-world/nibio_inference/merge_pt_ss_is_in_folders.py -i "$DEST_DIR/utm2local" -s "$DEST_DIR" -o "$FINAL_DEST_DIR" -v
+
+python3 /home/nibio/mutable-outside-world/nibio_inference/final_utm_integration_in_folders.py -i "$DEST_DIR/utm2local" -s "$DEST_DIR" -o "$FINAL_DEST_DIR" -v
+
+# bring back to utm and save as laz (just mapping and no extending with orignal points)
+# python3 /home/nibio/mutable-outside-world/nibio_inference/prepare_final.py -u "$DEST_DIR/utm2local" -i "$DEST_DIR" -o "$FINAL_DEST_DIR" -v
 
 # remove numbers in the beginning of the file names
 

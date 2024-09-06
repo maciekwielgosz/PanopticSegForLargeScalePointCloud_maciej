@@ -63,6 +63,9 @@ def pandas_to_las(csv, csv_file_provided=False, output_file_path=None, do_compre
 
     # Standardize column names to match LAS format
     df.rename(columns={'x': 'X', 'y': 'Y', 'z': 'Z'}, inplace=True)
+    
+    # Fill NaN values with 0
+    df = df.fillna(0)
 
     # Calculate scales and offsets for your point data
     scale = [0.001, 0.001, 0.001]  # Example scale factors

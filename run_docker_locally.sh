@@ -1,11 +1,12 @@
 #!/bin/bash
 
-CONTAINER_NAME="test_e2e_instance"
-IMAGE_NAME="nibio/e2e-instance"
+CONTAINER_NAME="test_e2e_instance_5_classes_sem_tiling"
+IMAGE_NAME="nibio/e2e-instance_5_classes_sem_tiling"
 
 # Check if the container exists
 if [ $(docker container ls -a -q -f name=$CONTAINER_NAME) ]; then
     echo "Removing existing container $CONTAINER_NAME"
+    docker container stop $CONTAINER_NAME
     docker container rm $CONTAINER_NAME
 else
     echo "Container $CONTAINER_NAME does not exist."

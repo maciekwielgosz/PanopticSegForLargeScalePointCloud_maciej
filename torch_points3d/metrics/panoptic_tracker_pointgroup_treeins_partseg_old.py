@@ -769,7 +769,7 @@ class PanopticTracker(SegmentationTracker):
                         test_area_i.pos,
                         torch.argmax(full_pred, 1).numpy(), #[0, ..]
                         test_area_i.y,   #[-1, ...]
-                        "Semantic_results_forEval_{}.ply".format(i),
+                        "semantic_result_{}.ply".format(i),
                     )
                     # instance
                     has_prediction = test_area_i.ins_pre != -1
@@ -832,8 +832,16 @@ class PanopticTracker(SegmentationTracker):
                             test_area_i.pos,
                             full_ins_pred.numpy(),  #[-1, ...]
                             test_area_i.instance_labels,  #[0, ..]
-                            "Instance_Results_forEval_{}.ply".format(i),
+                            "result_{}.ply".format(i),
                         )
+                        # # from the old code
+                        # things_idx = full_ins_pred != -1
+                        # self._dataset.to_ins_ply(
+                        #     test_area_i.pos[things_idx],
+                        #     full_ins_pred[things_idx].numpy(),
+                        #     "result_{}.ply".format(i),
+                        #     # @Treeins: save instance segmentation prediction of current data file
+                        # )
                         '''self._dataset.to_eval_ply(
                             self._test_area.pos,
                             full_ins_pred_offset.numpy(),
